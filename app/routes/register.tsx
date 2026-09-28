@@ -2,11 +2,15 @@ import { Form, Link, data } from "react-router";
 import { z } from "zod";
 
 import type { Route } from "./+types/register";
-import { exampleEvent } from "../domain/events/example-event";
+import { getPublishedEventBySlug, validatePrivateEventAccess } from "../infrastructure/db/event-repository.server";
 
-export function loader({ params, request }: Route.LoaderArgs) {
-  const raceId = new URL(request.url).searchParams.get("race");
-  const selectedRace = exampleEvent.races.find((race) => race.id === raceId) ?? exampleEvent.races[0];
+export async function loader({ params, request }: Route.LoaderArgs) {
+  const url = new URL(request.url); const result = await getPublishedEventBySlug(params.eventSlug);
+  if (!result) throw data("Event not found", { status: 404 });
+  const access = url.searchParams.get("access");
+  if (result.event.visibility === "private" && !(await validatePrivateEventAccess(result.event.id, access))) throw data("Event not found", { status: 404 });
+  const selectedRace = result.races.find((race) => race.id === url.searchParams.get("race")) ?? result.races[0];
+  if (!selectedRace) throw data("No race is available for registration", { status: 400 });
   return { eventSlug: params.eventSlug, selectedRace };
 }
 

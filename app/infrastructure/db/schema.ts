@@ -11,6 +11,18 @@ export const users = sqliteTable("users", {
   id: text("id").primaryKey(), email: text("email").notNull(), emailVerifiedAt: text("email_verified_at"), ...timestamps,
 }, (table) => [uniqueIndex("users_email_unique").on(table.email)]);
 
+export const organizationMemberships = sqliteTable("organization_memberships", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id").notNull().references(() => organizations.id),
+  userId: text("user_id").notNull().references(() => users.id),
+  role: text("role", { enum: ["owner", "admin", "event_manager", "registration_reviewer"] }).notNull(),
+  status: text("status", { enum: ["invited", "active", "suspended"] }).notNull().default("invited"),
+  ...timestamps,
+}, (table) => [
+  uniqueIndex("organization_memberships_org_user_unique").on(table.organizationId, table.userId),
+  index("organization_memberships_org_idx").on(table.organizationId),
+]);
+
 export const athleteProfiles = sqliteTable("athlete_profiles", {
   id: text("id").primaryKey(), userId: text("user_id").notNull().references(() => users.id),
   firstName: text("first_name").notNull(), lastName: text("last_name").notNull(), dateOfBirth: text("date_of_birth").notNull(),
@@ -33,6 +45,33 @@ export const races = sqliteTable("races", {
   capacity: integer("capacity"), ...timestamps,
 }, (table) => [index("races_event_idx").on(table.eventId)]);
 
+export const categories = sqliteTable("categories", {
+  id: text("id").primaryKey(), eventId: text("event_id").notNull().references(() => events.id),
+  raceId: text("race_id").notNull().references(() => races.id), name: text("name").notNull(),
+  description: text("description").notNull().default(""), capacity: integer("capacity"), sortOrder: integer("sort_order").notNull().default(0),
+  ...timestamps,
+}, (table) => [index("categories_race_idx").on(table.raceId)]);
+
+export const waves = sqliteTable("waves", {
+  id: text("id").primaryKey(), eventId: text("event_id").notNull().references(() => events.id),
+  raceId: text("race_id").notNull().references(() => races.id), name: text("name").notNull(),
+  startsAt: text("starts_at").notNull(), capacity: integer("capacity"), sortOrder: integer("sort_order").notNull().default(0),
+  ...timestamps,
+}, (table) => [index("waves_race_idx").on(table.raceId)]);
+
+export const eventAccessTokens = sqliteTable("event_access_tokens", {
+  id: text("id").primaryKey(), eventId: text("event_id").notNull().references(() => events.id),
+  tokenHash: text("token_hash").notNull(), label: text("label").notNull().default("Primary private link"),
+  expiresAt: text("expires_at"), revokedAt: text("revoked_at"), createdAt: text("created_at").notNull(),
+}, (table) => [index("event_access_tokens_event_idx").on(table.eventId)]);
+
+export const capacityCounters = sqliteTable("capacity_counters", {
+  id: text("id").primaryKey(), eventId: text("event_id").notNull().references(() => events.id),
+  scopeType: text("scope_type", { enum: ["event", "race", "category", "wave"] }).notNull(),
+  scopeId: text("scope_id").notNull(), limit: integer("limit"), confirmed: integer("confirmed").notNull().default(0),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [uniqueIndex("capacity_counters_scope_unique").on(table.scopeType, table.scopeId), index("capacity_counters_event_idx").on(table.eventId)]);
+
 export const registrations = sqliteTable("registrations", {
   id: text("id").primaryKey(), eventId: text("event_id").notNull().references(() => events.id),
   raceId: text("race_id").notNull().references(() => races.id),
@@ -54,3 +93,9 @@ export const walletPasses = sqliteTable("wallet_passes", {
   shareUrl: text("share_url").notNull(), status: text("status", { enum: ["active", "revoked", "failed"] }).notNull().default("active"),
   lastSyncedAt: text("last_synced_at").notNull(), ...timestamps,
 }, (table) => [uniqueIndex("wallet_passes_registration_unique").on(table.registrationId)]);
+
+export const auditLogs = sqliteTable("audit_logs", {
+  id: text("id").primaryKey(), organizationId: text("organization_id").notNull().references(() => organizations.id),
+  actorUserId: text("actor_user_id"), action: text("action").notNull(), targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull(), metadataJson: text("metadata_json").notNull().default("{}"), createdAt: text("created_at").notNull(),
+}, (table) => [index("audit_logs_org_created_idx").on(table.organizationId, table.createdAt)]);
