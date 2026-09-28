@@ -16,8 +16,13 @@
 		{
 			"binding": "DB",
 			"database_name": "event-registration-platform",
-			"database_id": "replace-with-your-d1-database-id",
+			"database_id": "b048cf84-1fdc-4903-a347-51d671b61711",
 			"migrations_dir": "migrations"
+		},
+		{
+			"binding": "event_registration_platform",
+			"database_name": "event-registration-platform",
+			"database_id": "b048cf84-1fdc-4903-a347-51d671b61711"
 		}
 	],
 	"observability": {
