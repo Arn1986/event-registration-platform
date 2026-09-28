@@ -1,0 +1,20 @@
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE organizations (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, slug TEXT NOT NULL, timezone TEXT NOT NULL DEFAULT 'Asia/Dubai', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE UNIQUE INDEX organizations_slug_unique ON organizations (slug);
+CREATE TABLE users (id TEXT PRIMARY KEY NOT NULL, email TEXT NOT NULL, email_verified_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE UNIQUE INDEX users_email_unique ON users (email);
+CREATE TABLE athlete_profiles (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL REFERENCES users(id), first_name TEXT NOT NULL, last_name TEXT NOT NULL, date_of_birth TEXT NOT NULL, phone TEXT, nationality TEXT, club_name TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE UNIQUE INDEX athlete_profiles_user_unique ON athlete_profiles (user_id);
+CREATE TABLE events (id TEXT PRIMARY KEY NOT NULL, organization_id TEXT NOT NULL REFERENCES organizations(id), slug TEXT NOT NULL, name TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published','closed','cancelled','completed')), visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public','private')), starts_at TEXT NOT NULL, timezone TEXT NOT NULL DEFAULT 'Asia/Dubai', venue_name TEXT NOT NULL, capacity INTEGER CHECK (capacity IS NULL OR capacity >= 0), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE UNIQUE INDEX events_org_slug_unique ON events (organization_id, slug);
+CREATE INDEX events_status_starts_idx ON events (status, starts_at);
+CREATE TABLE races (id TEXT PRIMARY KEY NOT NULL, event_id TEXT NOT NULL REFERENCES events(id), name TEXT NOT NULL, discipline TEXT NOT NULL, distance_value INTEGER NOT NULL CHECK (distance_value > 0), distance_unit TEXT NOT NULL CHECK (distance_unit IN ('m','km')), starts_at TEXT NOT NULL, capacity INTEGER CHECK (capacity IS NULL OR capacity >= 0), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX races_event_idx ON races (event_id);
+CREATE TABLE registrations (id TEXT PRIMARY KEY NOT NULL, event_id TEXT NOT NULL REFERENCES events(id), race_id TEXT NOT NULL REFERENCES races(id), athlete_profile_id TEXT NOT NULL REFERENCES athlete_profiles(id), status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','awaiting_guardian_consent','submitted','confirmed','waitlisted','cancelled','completed')), athlete_snapshot_json TEXT NOT NULL, submitted_at TEXT, confirmed_at TEXT, cancelled_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX registrations_event_status_idx ON registrations (event_id, status);
+CREATE INDEX registrations_athlete_idx ON registrations (athlete_profile_id);
+CREATE TABLE auth_challenges (id TEXT PRIMARY KEY NOT NULL, normalized_email TEXT NOT NULL, code_hash TEXT NOT NULL, purpose TEXT NOT NULL CHECK (purpose IN ('register','sign_in','guardian_consent')), expires_at TEXT NOT NULL, consumed_at TEXT, attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0), created_at TEXT NOT NULL);
+CREATE INDEX auth_challenges_email_idx ON auth_challenges (normalized_email, created_at);
+CREATE TABLE wallet_passes (id TEXT PRIMARY KEY NOT NULL, registration_id TEXT NOT NULL REFERENCES registrations(id), provider TEXT NOT NULL DEFAULT 'walletwallet', external_serial TEXT NOT NULL, share_url TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','revoked','failed')), last_synced_at TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE UNIQUE INDEX wallet_passes_registration_unique ON wallet_passes (registration_id);
