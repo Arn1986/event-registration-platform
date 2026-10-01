@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 
 type EmailSecrets = { RESEND_API_KEY?: string; EMAIL_FROM?: string };
-type EmailMessage = { to: string; subject: string; html: string; idempotencyKey: string };
+export type EmailMessage = { to: string; subject: string; html: string; idempotencyKey: string };
 
 export interface EmailProvider {
   send(message: EmailMessage): Promise<{ id: string }>;
@@ -35,6 +35,10 @@ export function emailDeliveryConfigured() {
 
 export const emailProvider: EmailProvider = new ResendEmailProvider();
 
+export function sendTransactionalEmail(message: EmailMessage) {
+  return emailProvider.send(message);
+}
+
 export async function sendOtpEmail(to: string, code: string, idempotencyKey: string) {
   const appName = configuration().APP_NAME ?? "3F Striders Events";
   return emailProvider.send({
@@ -55,6 +59,6 @@ export async function sendTeamInviteEmail(to: string, teamName: string, eventNam
   });
 }
 
-function escapeHtml(value: string) {
+export function escapeHtml(value: string) {
   return value.replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character] ?? character);
 }

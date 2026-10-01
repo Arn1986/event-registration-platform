@@ -1,0 +1,24 @@
+{
+  "r2_buckets": [
+    {
+      "binding": "PASSES",
+      "bucket_name": "event-registration-passes"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "DELIVERY_QUEUE",
+        "queue": "event-registration-delivery"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "event-registration-delivery",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 5
+      }
+    ]
+  }
+}

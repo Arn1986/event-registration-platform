@@ -109,6 +109,7 @@ export const registrations = sqliteTable("registrations", {
   formVersionId: text("form_version_id").references(() => formVersions.id), waiverVersionId: text("waiver_version_id").references(() => waiverVersions.id),
   entryType: text("entry_type", { enum: ["individual", "team", "relay"] }).notNull().default("individual"),
   teamId: text("team_id"), registrationReference: text("registration_reference"), idempotencyKey: text("idempotency_key"), processedAt: text("processed_at"),
+  bibNumber: text("bib_number"), bibAssignedAt: text("bib_assigned_at"),
   status: text("status", { enum: ["draft", "awaiting_guardian_consent", "submitted", "confirmed", "waitlisted", "cancelled", "completed"] }).notNull().default("draft"),
   athleteSnapshotJson: text("athlete_snapshot_json").notNull(), submittedAt: text("submitted_at"),
   confirmedAt: text("confirmed_at"), cancelledAt: text("cancelled_at"), ...timestamps,
@@ -170,9 +171,19 @@ export const guardianConsents = sqliteTable("guardian_consents", {
 export const walletPasses = sqliteTable("wallet_passes", {
   id: text("id").primaryKey(), registrationId: text("registration_id").notNull().references(() => registrations.id),
   provider: text("provider").notNull().default("walletwallet"), externalSerial: text("external_serial").notNull(),
-  shareUrl: text("share_url").notNull(), status: text("status", { enum: ["active", "revoked", "failed"] }).notNull().default("active"),
+  status: text("status", { enum: ["active", "revoked", "failed"] }).notNull().default("active"),
+  appleObjectKey: text("apple_object_key"), googleSaveUrl: text("google_save_url"), passSpecJson: text("pass_spec_json").notNull().default("{}"),
+  lastError: text("last_error"), issuedAt: text("issued_at"), attemptCount: integer("attempt_count").notNull().default(0),
   lastSyncedAt: text("last_synced_at").notNull(), ...timestamps,
 }, (table) => [uniqueIndex("wallet_passes_registration_unique").on(table.registrationId)]);
+
+export const communicationLogs = sqliteTable("communication_logs", {
+  id: text("id").primaryKey(), registrationId: text("registration_id").notNull().references(() => registrations.id),
+  messageType: text("message_type", { enum: ["confirmation", "waitlist", "cancellation", "event_update", "wallet_delivery"] }).notNull(),
+  channel: text("channel", { enum: ["email", "wallet"] }).notNull(), provider: text("provider").notNull(),
+  status: text("status", { enum: ["sent", "failed", "skipped"] }).notNull(), externalId: text("external_id"), errorMessage: text("error_message"),
+  dedupeKey: text("dedupe_key").notNull(), createdAt: text("created_at").notNull(), sentAt: text("sent_at"),
+}, (table) => [uniqueIndex("communication_logs_dedupe_unique").on(table.dedupeKey), index("communication_logs_registration_idx").on(table.registrationId, table.createdAt)]);
 
 export const auditLogs = sqliteTable("audit_logs", {
   id: text("id").primaryKey(), organizationId: text("organization_id").notNull().references(() => organizations.id),

@@ -5,13 +5,15 @@ import type { Route } from "./+types/dashboard";
 import { getAthlete, requestOtp, safeNextPath } from "../infrastructure/auth/athlete-auth.server";
 import { emailDeliveryConfigured } from "../infrastructure/email/email-provider.server";
 import { listAthleteRegistrations } from "../infrastructure/db/athlete-repository.server";
+import { getWalletSummary } from "../infrastructure/wallet/wallet-service.server";
 
 export function meta({}: Route.MetaArgs) { return [{ title: "Athlete dashboard | 3F Striders" }]; }
 
 export async function loader({ request }: Route.LoaderArgs) {
   const athlete = await getAthlete(request);
   const url = new URL(request.url);
-  return { athlete, registrations: athlete ? await listAthleteRegistrations(athlete.userId) : [], next: safeNextPath(url.searchParams.get("next")), emailConfigured: emailDeliveryConfigured() };
+  const registrations = athlete ? await listAthleteRegistrations(athlete.userId) : [];
+  return { athlete, registrations: await Promise.all(registrations.map(async (registration) => ({ ...registration, wallet: await getWalletSummary(registration.id) }))), next: safeNextPath(url.searchParams.get("next")), emailConfigured: emailDeliveryConfigured() };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -48,8 +50,8 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
     <div className="dashboard-heading"><div><span className="eyebrow eyebrow-dark">Athlete dashboard</span><h1>Your registrations</h1><p className="lead">Signed in as {loaderData.athlete.email}</p></div><div className="button-row compact-buttons"><Link className="button button-muted" to="/teams/join">Join a team</Link><Form action="/athlete/logout" method="post"><button className="button button-muted" type="submit">Sign out</button></Form></div></div>
     {loaderData.registrations.length ? <div className="registration-grid">{loaderData.registrations.map((registration) => <article className="registration-card" key={registration.id}>
       <div className="registration-card-top"><span className={`pill status-${registration.status}`}>{registration.status.replaceAll("_", " ")}</span><time>{new Date(registration.eventStartsAt).toLocaleDateString("en-AE", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Dubai" })}</time></div>
-      <h2>{registration.eventName}</h2><p>{registration.raceName}{registration.categoryName ? ` · ${registration.categoryName}` : ""}{registration.waveName ? ` · ${registration.waveName}` : ""}</p>{registration.teamName ? <p><strong>{registration.teamName}</strong> · {registration.entryType}</p> : null}<p>{registration.venueName}</p>
-      <div className="card-links"><Link className="text-link" to={`/registrations/${registration.id}/confirmation`}>View registration →</Link>{registration.teamId ? <Link className="text-link" to={`/dashboard/teams/${registration.teamId}`}>Team →</Link> : null}</div>
+      <h2>{registration.eventName}</h2><p>{registration.raceName}{registration.categoryName ? ` · ${registration.categoryName}` : ""}{registration.waveName ? ` · ${registration.waveName}` : ""}</p>{registration.teamName ? <p><strong>{registration.teamName}</strong> · {registration.entryType}</p> : null}{registration.bibNumber ? <p><strong>Bib {registration.bibNumber}</strong></p> : null}<p>{registration.venueName}</p>
+      <div className="card-links"><Link className="text-link" to={`/registrations/${registration.id}/confirmation`}>View registration →</Link>{registration.wallet?.url ? <a className="text-link" href={registration.wallet.url}>Add to Wallet →</a> : null}{registration.teamId ? <Link className="text-link" to={`/dashboard/teams/${registration.teamId}`}>Team →</Link> : null}</div>
     </article>)}</div> : <div className="empty-state public-empty"><h3>No registrations yet</h3><p>Choose an event to start your first registration.</p><Link className="button button-primary" to="/">Browse events</Link></div>}
   </main>;
 }

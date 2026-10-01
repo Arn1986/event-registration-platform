@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 
 import { capacityScopes, type RegistrationStatus } from "../../domain/registration/registration-lifecycle";
+import { enqueueRegistrationDelivery } from "../communications/delivery-queue.server";
 
 const database = () => env.DB;
 const now = () => new Date().toISOString();
@@ -37,6 +38,7 @@ export async function finalizeRegistration(registrationId: string, actorType: "s
       historyStatement(registration.id, registration.status, "confirmed", actorType, actorReference, registration.status === "waitlisted" ? "waitlist promotion" : "capacity available", timestamp),
     ]);
     await refreshTeamStatusForRegistration(registration.id);
+    await safelyDeliver(() => enqueueRegistrationDelivery({ type: "confirmed", registrationId: registration.id }));
     return { status: "confirmed" as const, changed: true };
   } catch (error) {
     const message = String(error);
@@ -51,6 +53,7 @@ export async function finalizeRegistration(registrationId: string, actorType: "s
         database().prepare("UPDATE registrations SET status = 'waitlisted', processed_at = ?, updated_at = ? WHERE id = ? AND status = 'submitted'").bind(timestamp, timestamp, registration.id),
         historyStatement(registration.id, registration.status, "waitlisted", actorType, actorReference, "one or more capacity levels are full", timestamp),
       ]);
+      await safelyDeliver(() => enqueueRegistrationDelivery({ type: "waitlisted", registrationId: registration.id }));
     }
     return { status: "waitlisted" as const, changed: registration.status !== "waitlisted" };
   }
@@ -70,6 +73,7 @@ export async function cancelRegistration(registrationId: string, actorType: "ath
   ]);
   if (registration.teamId) await reassignTeamCaptain(registration.teamId, registration.id);
   await promoteWaitlist(registration.eventId);
+  await safelyDeliver(() => enqueueRegistrationDelivery({ type: "cancelled", registrationId: registration.id }));
   return { changed: true };
 }
 
@@ -95,6 +99,7 @@ export async function moveToWaitlist(registrationId: string, actorReference: str
     historyStatement(registration.id, registration.status, "waitlisted", "organizer", actorReference, reason, timestamp),
   ]);
   await promoteWaitlist(registration.eventId, registration.id);
+  await safelyDeliver(() => enqueueRegistrationDelivery({ type: "waitlisted", registrationId: registration.id }));
 }
 
 export async function promoteWaitlist(eventId: string, excludeRegistrationId?: string) {
@@ -116,4 +121,9 @@ async function refreshTeamStatusForRegistration(registrationId: string) {
   if (!counts) return;
   await database().prepare("UPDATE teams SET status = ?, updated_at = ? WHERE id = ? AND status <> 'cancelled'")
     .bind(counts.members >= counts.minSize ? "ready" : "forming", now(), team.teamId).run();
+}
+
+async function safelyDeliver(operation: () => Promise<void>) {
+  try { await operation(); }
+  catch (error) { console.error("Registration delivery side effect failed", error); }
 }

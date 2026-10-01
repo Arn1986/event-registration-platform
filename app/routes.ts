@@ -12,6 +12,7 @@ export default [
   route("teams/join", "routes/team-join.tsx"),
   route("teams/invitations/:token", "routes/team-invitation.tsx"),
   route("dashboard/teams/:teamId", "routes/athlete-team.tsx"),
+  route("passes/:registrationId/:token", "routes/wallet-download.tsx"),
   route("organizer/login", "routes/organizer-login.tsx"),
   route("organizer/logout", "routes/organizer-logout.tsx"),
   route("organizer", "routes/organizer-layout.tsx", [

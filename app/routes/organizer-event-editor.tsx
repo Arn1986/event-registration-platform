@@ -5,6 +5,7 @@ import { canTransitionEvent, type EventStatus } from "../domain/events/lifecycle
 import { categoryInputSchema, eventInputSchema, raceInputSchema, waveInputSchema } from "../domain/events/event-validation";
 import { raceEntrySettingsSchema } from "../domain/teams/team-rules";
 import { requireOrganizer } from "../infrastructure/auth/organizer-session.server";
+import { enqueueEventConfirmations, enqueueEventUpdate } from "../infrastructure/communications/delivery-queue.server";
 import { addCategory, addRace, addWave, getEvent, rotatePrivateLink, setEventStatus, updateEvent, updateRaceEntrySettings } from "../infrastructure/db/event-repository.server";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -26,7 +27,8 @@ export async function action({ request, params }: Route.ActionArgs) {
       const result = eventInputSchema.safeParse(values);
       if (!result.success) return data({ ok: false as const, message: result.error.issues[0]?.message ?? "Check the event details." }, { status: 400 });
       await updateEvent(params.eventId, result.data, session.email);
-      return { ok: true as const, message: "Event details saved." };
+      const delivery = await enqueueEventUpdate(params.eventId, "The event information has been updated. Review the latest date, time, and venue details.");
+      return { ok: true as const, message: delivery.attempted ? `Event details saved and ${delivery.attempted} confirmed athlete${delivery.attempted === 1 ? "" : "s"} notified.` : "Event details saved." };
     }
     if (intent === "set-status") {
       if (!hasPermission(session.role, "events.publish")) return data({ ok: false as const, message: "Your role cannot change publication status." }, { status: 403 });
@@ -35,6 +37,11 @@ export async function action({ request, params }: Route.ActionArgs) {
       if (status === "published" && current.races.length === 0) return data({ ok: false as const, message: "Add at least one race before publishing." }, { status: 400 });
       await setEventStatus(params.eventId, status, session.email);
       return { ok: true as const, message: `Event is now ${status}.` };
+    }
+    if (intent === "issue-passes") {
+      if (!hasPermission(session.role, "registrations.edit")) return data({ ok: false as const, message: "Your role cannot issue registration deliveries." }, { status: 403 });
+      const delivery = await enqueueEventConfirmations(params.eventId);
+      return { ok: true as const, message: delivery.attempted ? `${delivery.attempted} confirmed registration deliver${delivery.attempted === 1 ? "y" : "ies"} queued.` : "There are no confirmed registrations to deliver." };
     }
     if (intent === "add-race") {
       if (!hasPermission(session.role, "events.edit")) return data({ ok: false as const, message: "Your role cannot edit races." }, { status: 403 });
@@ -122,6 +129,7 @@ export default function OrganizerEventEditor({ loaderData, actionData }: Route.C
       <section className="editor-section publish-panel">
         <div><span className="eyebrow">Publication</span><h2>{event.status === "published" ? "Event is live" : "Ready to publish?"}</h2><p>Publishing makes a public event discoverable. Private events remain accessible only through their current private link.</p></div>
         <div className="publish-actions">
+          <Form method="post"><input type="hidden" name="intent" value="issue-passes" /><button className="button button-secondary" type="submit">Issue/retry race passes</button></Form>
           {event.visibility === "private" ? <Form method="post"><input type="hidden" name="intent" value="rotate-link" /><button className="button button-secondary" type="submit">Rotate private link</button></Form> : null}
           <Form method="post"><input type="hidden" name="intent" value="set-status" /><input type="hidden" name="status" value={event.status === "published" ? "draft" : "published"} /><button className="button button-primary" type="submit" disabled={!loaderData.permissions.publish}>{event.status === "published" ? "Return to draft" : "Publish event"}</button></Form>
         </div>

@@ -28,7 +28,35 @@
 	"observability": {
 		"enabled": true
 	},
-	"upload_source_maps": true
+	"upload_source_maps": true,
+	"r2_buckets": [
+		{
+			"bucket_name": "event-registration-passes",
+			"binding": "event_registration_passes"
+		}
+	],
+	"r2_buckets": [
+    {
+      "binding": "PASSES",
+      "bucket_name": "event-registration-passes"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "DELIVERY_QUEUE",
+        "queue": "event-registration-delivery"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "event-registration-delivery",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 5
+      }
+    ]
+  }
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement

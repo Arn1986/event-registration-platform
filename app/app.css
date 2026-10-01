@@ -258,6 +258,10 @@ label { display:grid; gap:8px; }
 .history-list article { display:flex; justify-content:space-between; gap:20px; padding:14px 0; border-top:1px solid var(--line); }
 .status-forming { background:#fff0cd; color:#78550b; }
 .status-ready { background:#ebf7d0; color:#40550d; }
+.bib-form { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:12px; margin-top:24px; padding-top:20px; border-top:1px solid var(--line); }
+.wallet-choice { text-align:left; }
+.wallet-choice h1 { margin-bottom:8px; }
+.wallet-buttons { display:grid; gap:12px; margin-block:28px; }
 @media (max-width:780px) {
   nav a:not(.nav-organizer) { display:none; }
   .hero-grid,.event-layout { grid-template-columns:1fr; }
@@ -281,4 +285,5 @@ label { display:grid; gap:8px; }
   .organizer-team-list article,.history-list article { align-items:flex-start; flex-direction:column; }
   .team-member-list article { grid-template-columns:42px minmax(0,1fr); }
   .team-member-list article>small { grid-column:2; }
+  .bib-form { grid-template-columns:1fr; }
 }
