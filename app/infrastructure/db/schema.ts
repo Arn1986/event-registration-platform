@@ -49,7 +49,8 @@ export const races = sqliteTable("races", {
   id: text("id").primaryKey(), eventId: text("event_id").notNull().references(() => events.id), name: text("name").notNull(),
   discipline: text("discipline").notNull(), distanceValue: integer("distance_value").notNull(),
   distanceUnit: text("distance_unit", { enum: ["m", "km"] }).notNull(), startsAt: text("starts_at").notNull(),
-  capacity: integer("capacity"), ...timestamps,
+  capacity: integer("capacity"), entryModesJson: text("entry_modes_json").notNull().default('["individual"]'),
+  teamMinSize: integer("team_min_size").notNull().default(2), teamMaxSize: integer("team_max_size").notNull().default(2), ...timestamps,
 }, (table) => [index("races_event_idx").on(table.eventId)]);
 
 export const categories = sqliteTable("categories", {
@@ -106,10 +107,42 @@ export const registrations = sqliteTable("registrations", {
   athleteProfileId: text("athlete_profile_id").notNull().references(() => athleteProfiles.id),
   categoryId: text("category_id").references(() => categories.id), waveId: text("wave_id").references(() => waves.id),
   formVersionId: text("form_version_id").references(() => formVersions.id), waiverVersionId: text("waiver_version_id").references(() => waiverVersions.id),
+  entryType: text("entry_type", { enum: ["individual", "team", "relay"] }).notNull().default("individual"),
+  teamId: text("team_id"), registrationReference: text("registration_reference"), idempotencyKey: text("idempotency_key"), processedAt: text("processed_at"),
   status: text("status", { enum: ["draft", "awaiting_guardian_consent", "submitted", "confirmed", "waitlisted", "cancelled", "completed"] }).notNull().default("draft"),
   athleteSnapshotJson: text("athlete_snapshot_json").notNull(), submittedAt: text("submitted_at"),
   confirmedAt: text("confirmed_at"), cancelledAt: text("cancelled_at"), ...timestamps,
-}, (table) => [index("registrations_event_status_idx").on(table.eventId, table.status), index("registrations_athlete_idx").on(table.athleteProfileId)]);
+}, (table) => [index("registrations_event_status_idx").on(table.eventId, table.status), index("registrations_athlete_idx").on(table.athleteProfileId), uniqueIndex("registrations_reference_unique").on(table.registrationReference), uniqueIndex("registrations_idempotency_unique").on(table.idempotencyKey), index("registrations_team_idx").on(table.teamId)]);
+
+export const teams = sqliteTable("teams", {
+  id: text("id").primaryKey(), eventId: text("event_id").notNull().references(() => events.id), raceId: text("race_id").notNull().references(() => races.id),
+  categoryId: text("category_id").references(() => categories.id), waveId: text("wave_id").references(() => waves.id), name: text("name").notNull(),
+  entryType: text("entry_type", { enum: ["team", "relay"] }).notNull(), status: text("status", { enum: ["forming", "ready", "cancelled"] }).notNull().default("forming"),
+  captainRegistrationId: text("captain_registration_id"), joinCodeHash: text("join_code_hash").notNull(), joinCodeHint: text("join_code_hint").notNull(),
+  minSize: integer("min_size").notNull(), maxSize: integer("max_size").notNull(), organizerCreated: integer("organizer_created", { mode: "boolean" }).notNull().default(false),
+  ...timestamps,
+}, (table) => [index("teams_event_idx").on(table.eventId), index("teams_race_idx").on(table.raceId), uniqueIndex("teams_join_code_hash_unique").on(table.joinCodeHash)]);
+
+export const teamMembers = sqliteTable("team_members", {
+  id: text("id").primaryKey(), teamId: text("team_id").notNull().references(() => teams.id), registrationId: text("registration_id").notNull().references(() => registrations.id),
+  role: text("role", { enum: ["captain", "member"] }).notNull().default("member"), relayLeg: text("relay_leg"), joinedAt: text("joined_at").notNull(), createdAt: text("created_at").notNull(),
+}, (table) => [uniqueIndex("team_members_registration_unique").on(table.registrationId), uniqueIndex("team_members_team_registration_unique").on(table.teamId, table.registrationId), index("team_members_team_idx").on(table.teamId)]);
+
+export const teamInvitations = sqliteTable("team_invitations", {
+  id: text("id").primaryKey(), teamId: text("team_id").notNull().references(() => teams.id), email: text("email").notNull(), tokenHash: text("token_hash").notNull(),
+  relayLeg: text("relay_leg"), expiresAt: text("expires_at").notNull(), acceptedAt: text("accepted_at"), revokedAt: text("revoked_at"), createdAt: text("created_at").notNull(),
+}, (table) => [uniqueIndex("team_invitations_token_hash_unique").on(table.tokenHash), index("team_invitations_team_idx").on(table.teamId)]);
+
+export const capacityReservations = sqliteTable("capacity_reservations", {
+  id: text("id").primaryKey(), registrationId: text("registration_id").notNull().references(() => registrations.id), eventId: text("event_id").notNull().references(() => events.id),
+  scopeType: text("scope_type", { enum: ["event", "race", "category", "wave"] }).notNull(), scopeId: text("scope_id").notNull(), createdAt: text("created_at").notNull(),
+}, (table) => [uniqueIndex("capacity_reservations_registration_scope_unique").on(table.registrationId, table.scopeType), index("capacity_reservations_scope_idx").on(table.scopeType, table.scopeId)]);
+
+export const registrationStatusHistory = sqliteTable("registration_status_history", {
+  id: text("id").primaryKey(), registrationId: text("registration_id").notNull().references(() => registrations.id),
+  fromStatus: text("from_status"), toStatus: text("to_status").notNull(), actorType: text("actor_type", { enum: ["system", "athlete", "organizer", "guardian"] }).notNull(),
+  actorReference: text("actor_reference"), reason: text("reason"), createdAt: text("created_at").notNull(),
+}, (table) => [index("registration_status_history_registration_idx").on(table.registrationId, table.createdAt)]);
 
 export const registrationAnswers = sqliteTable("registration_answers", {
   id: text("id").primaryKey(), registrationId: text("registration_id").notNull().references(() => registrations.id),

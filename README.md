@@ -16,16 +16,22 @@ Cloudflare-native race registration for `events.3fstriders.org`.
 - Versioned registration form builder and immutable published forms
 - Versioned participant waivers with checksum-backed consent records
 - Minor detection on event day and separate guardian OTP consent
-- Athlete dashboard with submitted registration details
+- Atomic event, race, category, and wave capacity allocation with automatic waitlisting
+- Individual, team, and relay entry modes per race
+- Captain-created teams, organizer-created teams, join codes, and email invitations
+- Athlete team dashboard with member roster, invite controls, and rotatable join codes
+- Athlete dashboard with registration references, confirmation state, team links, and cancellation
+- Organizer registration search, review, status control, and status history
+- Organizer team creation, invitation, join-code rotation, and registration assignment
 - Protected organizer bootstrap login
 - Event create/edit and publication workflow
 - Race, category, wave, and multi-level capacity configuration
 - Public/private event visibility with rotatable private links
 - Staff memberships and role permission matrix
 - Audit records for organizer changes
-- Capacity, RBAC, and lifecycle unit tests
+- Capacity, RBAC, registration lifecycle, and team-rule unit tests
 
-Phase 2 stores completed forms as `submitted` (or `awaiting_guardian_consent`). Atomic capacity allocation, confirmation/waitlisting, teams, and registration management begin in Phase 3. Confirmation email and WalletWallet issuance begin in Phase 4.
+Phase 3 automatically confirms new completed registrations while all configured capacity levels have space, otherwise it waitlists them. Cancelling or manually waitlisting a confirmed registration releases its capacity and promotes eligible athletes in submission order. Confirmation email and WalletWallet issuance begin in Phase 4.
 
 ## Local setup on Windows
 
@@ -62,7 +68,7 @@ Copy the returned database ID into `wrangler.jsonc`, replacing `replace-with-you
 npm run db:migrate:remote
 ```
 
-Apply migrations before deploying. Phase 2 adds `0003_phase_2_athlete_identity_and_forms.sql`.
+Apply migrations before deploying. Phase 3 adds `0004_phase_3_registration_engine.sql`.
 
 ## Configure organizer access
 
@@ -129,13 +135,13 @@ ORGANIZER_SETUP_TOKEN
 ORGANIZER_EMAIL
 ```
 
-## Phase 2 deployment order
+## Phase 3 deployment order
 
 1. Preserve the real D1 `database_id` already present in your deployed `wrangler.jsonc`.
-2. Run `./upgrade-phase2.ps1` once after extracting the ZIP over Phase 1.
+2. Run `./upgrade-phase3.ps1` once after extracting the ZIP over Phase 2.
 3. Install dependencies and run `npm test`, `npm run typecheck`, and `npm run build`.
 4. Run `npm run db:migrate:remote` before pushing the application code.
-5. Add the four Phase 2 secrets above.
-6. Commit and push; let Cloudflare deploy from GitHub.
-7. Open an event in the organizer console, choose **Form & waiver**, save the waiver, and publish the form bundle.
-8. Test athlete OTP with an email address you can receive before opening registration publicly.
+5. Commit and push; let Cloudflare deploy from GitHub. Phase 3 has no new secrets.
+6. Open each race in the event editor and choose its allowed individual, team, and relay entry modes.
+7. Use **Registrations** to confirm any Phase 2 registrations that were already stored as `submitted`; new Phase 3 registrations are processed automatically.
+8. Test an individual registration, a captain-created team, a join-code registration, cancellation, and waitlist promotion before opening the feature publicly.

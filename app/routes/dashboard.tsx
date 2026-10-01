@@ -45,11 +45,11 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
   </main>;
 
   return <main className="page-width section-space">
-    <div className="dashboard-heading"><div><span className="eyebrow eyebrow-dark">Athlete dashboard</span><h1>Your registrations</h1><p className="lead">Signed in as {loaderData.athlete.email}</p></div><Form action="/athlete/logout" method="post"><button className="button button-muted" type="submit">Sign out</button></Form></div>
+    <div className="dashboard-heading"><div><span className="eyebrow eyebrow-dark">Athlete dashboard</span><h1>Your registrations</h1><p className="lead">Signed in as {loaderData.athlete.email}</p></div><div className="button-row compact-buttons"><Link className="button button-muted" to="/teams/join">Join a team</Link><Form action="/athlete/logout" method="post"><button className="button button-muted" type="submit">Sign out</button></Form></div></div>
     {loaderData.registrations.length ? <div className="registration-grid">{loaderData.registrations.map((registration) => <article className="registration-card" key={registration.id}>
       <div className="registration-card-top"><span className={`pill status-${registration.status}`}>{registration.status.replaceAll("_", " ")}</span><time>{new Date(registration.eventStartsAt).toLocaleDateString("en-AE", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Dubai" })}</time></div>
-      <h2>{registration.eventName}</h2><p>{registration.raceName}{registration.categoryName ? ` · ${registration.categoryName}` : ""}{registration.waveName ? ` · ${registration.waveName}` : ""}</p><p>{registration.venueName}</p>
-      <Link className="text-link" to={`/registrations/${registration.id}/confirmation`}>View registration →</Link>
+      <h2>{registration.eventName}</h2><p>{registration.raceName}{registration.categoryName ? ` · ${registration.categoryName}` : ""}{registration.waveName ? ` · ${registration.waveName}` : ""}</p>{registration.teamName ? <p><strong>{registration.teamName}</strong> · {registration.entryType}</p> : null}<p>{registration.venueName}</p>
+      <div className="card-links"><Link className="text-link" to={`/registrations/${registration.id}/confirmation`}>View registration →</Link>{registration.teamId ? <Link className="text-link" to={`/dashboard/teams/${registration.teamId}`}>Team →</Link> : null}</div>
     </article>)}</div> : <div className="empty-state public-empty"><h3>No registrations yet</h3><p>Choose an event to start your first registration.</p><Link className="button button-primary" to="/">Browse events</Link></div>}
   </main>;
 }

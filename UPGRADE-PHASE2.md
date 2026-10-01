@@ -15,4 +15,3 @@ The upgrade script removes the obsolete `app/routes/organizer.tsx` file that an 
 
 Add `OTP_HASH_SECRET`, `FIELD_ENCRYPTION_KEY`, `RESEND_API_KEY`, and `EMAIL_FROM` as Cloudflare Worker secrets before pushing to GitHub.
 
-3F Striders Events <events@notification.3fstriders.org>

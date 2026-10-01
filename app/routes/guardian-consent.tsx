@@ -3,6 +3,7 @@ import { Form, Link, data, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/guardian-consent";
 import { requestOtp, verifyOtp } from "../infrastructure/auth/athlete-auth.server";
 import { attachGuardianChallenge, getGuardianConsentSummary, recordGuardianConsent } from "../infrastructure/db/athlete-repository.server";
+import { finalizeRegistration } from "../infrastructure/db/registration-engine.server";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const summary = await getGuardianConsentSummary(params.registrationId);
@@ -27,6 +28,7 @@ export async function action({ params, request }: Route.ActionArgs) {
   const verified = await verifyOtp(summary.guardianEmail, "guardian_consent", String(formData.get("code") ?? ""));
   if (!verified.ok) return data({ ok: false as const, message: verified.error }, { status: 400 });
   if (!(await recordGuardianConsent(params.registrationId, verified.email, verified.challengeId))) return data({ ok: false as const, message: "This consent request no longer matches the verification code." }, { status: 409 });
+  await finalizeRegistration(params.registrationId, "guardian", verified.email);
   return redirect(`/guardian/consent/${params.registrationId}?complete=1`);
 }
 

@@ -11,7 +11,7 @@ export type EventRecord = {
   id: string; slug: string; name: string; summary: string; status: "draft" | "published" | "closed" | "cancelled" | "completed";
   visibility: "public" | "private"; startsAt: string; timezone: string; venueName: string; capacity: number | null; raceCount?: number;
 };
-export type RaceRecord = { id: string; eventId: string; name: string; discipline: string; distanceValue: number; distanceUnit: "m" | "km"; startsAt: string; capacity: number | null };
+export type RaceRecord = { id: string; eventId: string; name: string; discipline: string; distanceValue: number; distanceUnit: "m" | "km"; startsAt: string; capacity: number | null; entryModesJson: string; teamMinSize: number; teamMaxSize: number };
 export type CategoryRecord = { id: string; eventId: string; raceId: string; name: string; description: string; capacity: number | null };
 export type WaveRecord = { id: string; eventId: string; raceId: string; name: string; startsAt: string; capacity: number | null };
 
@@ -34,7 +34,7 @@ export async function getPublishedEventBySlug(slug: string) {
   const event = await database().prepare(`SELECT id, slug, name, summary, status, visibility, starts_at AS startsAt, timezone, venue_name AS venueName, capacity FROM events WHERE organization_id = ? AND slug = ? AND status = 'published'`).bind(ORGANIZATION_ID, slug).first<EventRecord>();
   if (!event) return null;
   const [races, categories, waves] = await Promise.all([
-    database().prepare(`SELECT id, event_id AS eventId, name, discipline, distance_value AS distanceValue, distance_unit AS distanceUnit, starts_at AS startsAt, capacity FROM races WHERE event_id = ? ORDER BY starts_at`).bind(event.id).all<RaceRecord>(),
+    database().prepare(`SELECT id, event_id AS eventId, name, discipline, distance_value AS distanceValue, distance_unit AS distanceUnit, starts_at AS startsAt, capacity, entry_modes_json AS entryModesJson, team_min_size AS teamMinSize, team_max_size AS teamMaxSize FROM races WHERE event_id = ? ORDER BY starts_at`).bind(event.id).all<RaceRecord>(),
     database().prepare(`SELECT id, event_id AS eventId, race_id AS raceId, name, description, capacity FROM categories WHERE event_id = ? ORDER BY sort_order, name`).bind(event.id).all<CategoryRecord>(),
     database().prepare(`SELECT id, event_id AS eventId, race_id AS raceId, name, starts_at AS startsAt, capacity FROM waves WHERE event_id = ? ORDER BY sort_order, starts_at`).bind(event.id).all<WaveRecord>(),
   ]);
@@ -52,7 +52,7 @@ export async function getEvent(eventId: string) {
   const event = await database().prepare(`SELECT id, slug, name, summary, status, visibility, starts_at AS startsAt, timezone, venue_name AS venueName, capacity FROM events WHERE id = ? AND organization_id = ?`).bind(eventId, ORGANIZATION_ID).first<EventRecord>();
   if (!event) return null;
   const [races, categories, waves] = await Promise.all([
-    database().prepare(`SELECT id, event_id AS eventId, name, discipline, distance_value AS distanceValue, distance_unit AS distanceUnit, starts_at AS startsAt, capacity FROM races WHERE event_id = ? ORDER BY starts_at`).bind(eventId).all<RaceRecord>(),
+    database().prepare(`SELECT id, event_id AS eventId, name, discipline, distance_value AS distanceValue, distance_unit AS distanceUnit, starts_at AS startsAt, capacity, entry_modes_json AS entryModesJson, team_min_size AS teamMinSize, team_max_size AS teamMaxSize FROM races WHERE event_id = ? ORDER BY starts_at`).bind(eventId).all<RaceRecord>(),
     database().prepare(`SELECT id, event_id AS eventId, race_id AS raceId, name, description, capacity FROM categories WHERE event_id = ? ORDER BY sort_order, name`).bind(eventId).all<CategoryRecord>(),
     database().prepare(`SELECT id, event_id AS eventId, race_id AS raceId, name, starts_at AS startsAt, capacity FROM waves WHERE event_id = ? ORDER BY sort_order, starts_at`).bind(eventId).all<WaveRecord>(),
   ]);
@@ -90,6 +90,14 @@ export async function addRace(eventId: string, input: { name: string; discipline
     database().prepare(`INSERT INTO capacity_counters (id, event_id, scope_type, scope_id, "limit", confirmed, updated_at) VALUES (?, ?, 'race', ?, ?, 0, ?)`).bind(id("capacity"), eventId, raceId, nullableNumber(input.capacity), timestamp),
   ]);
   await audit("race.created", "race", raceId, actorEmail, { eventId });
+}
+
+export async function updateRaceEntrySettings(raceId: string, entryModes: Array<"individual" | "team" | "relay">, teamMinSize: number, teamMaxSize: number, actorEmail: string) {
+  const race = await database().prepare("SELECT event_id AS eventId FROM races WHERE id = ?").bind(raceId).first<{ eventId: string }>();
+  if (!race) throw new Error("Race not found");
+  await database().prepare("UPDATE races SET entry_modes_json = ?, team_min_size = ?, team_max_size = ?, updated_at = ? WHERE id = ?")
+    .bind(JSON.stringify(entryModes), teamMinSize, teamMaxSize, now(), raceId).run();
+  await audit("race.entry_settings_updated", "race", raceId, actorEmail, { eventId: race.eventId, entryModes, teamMinSize, teamMaxSize });
 }
 
 export async function addCategory(eventId: string, input: { raceId: string; name: string; description: string; capacity?: number }, actorEmail: string) {

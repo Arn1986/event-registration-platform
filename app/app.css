@@ -225,6 +225,39 @@ label { display:grid; gap:8px; }
 .builder-fields article { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; padding:18px 0; border-top:1px solid var(--line); }
 .builder-fields article>div { display:grid; gap:5px; }
 .builder-fields span,.builder-fields small { color:var(--muted); font-size:.76rem; }
+.entry-settings { margin-top:18px; padding-top:16px; border-top:1px solid var(--line); }
+.entry-settings summary { cursor:pointer; color:var(--purple); font-size:.8rem; font-weight:800; }
+.entry-settings form { display:grid; gap:16px; margin-top:16px; }
+.team-join-banner,.team-code-panel { display:grid; gap:5px; padding:16px; border-radius:14px; background:#f0e8ff; color:var(--purple-dark); }
+.team-join-banner span,.team-code-panel span,.team-code-panel small { font-size:.78rem; }
+.team-code-panel { margin-block:22px; }
+.team-code-panel strong { font-size:1.65rem; letter-spacing:.14em; }
+.confirmation-actions { align-items:center; justify-content:center; }
+.confirmation-actions form { margin:0; }
+.card-links { display:flex; flex-wrap:wrap; gap:18px; margin-top:20px; }
+.join-code-input { font-size:1.5rem; font-weight:850; letter-spacing:.22em; text-align:center; text-transform:uppercase; }
+.team-overview,.team-management-layout,.registration-review-grid { display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:22px; align-items:start; }
+.team-member-list,.organizer-team-list,.history-list { display:grid; margin-top:20px; }
+.team-member-list article { display:grid; grid-template-columns:42px minmax(0,1fr) auto; align-items:center; gap:14px; padding:17px 0; border-top:1px solid var(--line); }
+.team-member-list article>div:nth-child(2) { display:grid; gap:4px; }
+.team-member-list span,.team-member-list small,.organizer-team-list span,.history-list small { color:var(--muted); font-size:.76rem; }
+.organizer-team-list article { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:18px 0; border-top:1px solid var(--line); }
+.organizer-team-list article>div:first-child { display:grid; gap:6px; }
+.team-row-actions { display:flex; align-items:center; gap:14px; }
+.inline-code { display:inline-flex; margin-left:12px; padding:7px 10px; border-radius:8px; background:rgba(255,255,255,.65); letter-spacing:.12em; }
+.filter-bar { display:grid; grid-template-columns:minmax(220px,1fr) 220px auto; gap:12px; margin-bottom:20px; }
+.registration-table { overflow:hidden; }
+.registration-admin-row { display:grid; grid-template-columns:minmax(210px,1.2fr) minmax(180px,1fr) auto auto; align-items:center; gap:18px; padding:20px 0; border-top:1px solid var(--line); }
+.registration-admin-row>div { display:grid; gap:5px; min-width:0; }
+.registration-admin-row span,.registration-admin-row small { color:var(--muted); font-size:.76rem; overflow-wrap:anywhere; }
+.registration-admin-row>.pill { color:inherit; text-align:center; }
+.review-facts { display:grid; gap:0; margin:18px 0 0; }
+.review-facts div { display:grid; grid-template-columns:minmax(120px,.45fr) minmax(0,1fr); gap:18px; padding:13px 0; border-top:1px solid var(--line); }
+.review-facts dd { overflow-wrap:anywhere; }
+.subheading { margin-top:32px; }
+.history-list article { display:flex; justify-content:space-between; gap:20px; padding:14px 0; border-top:1px solid var(--line); }
+.status-forming { background:#fff0cd; color:#78550b; }
+.status-ready { background:#ebf7d0; color:#40550d; }
 @media (max-width:780px) {
   nav a:not(.nav-organizer) { display:none; }
   .hero-grid,.event-layout { grid-template-columns:1fr; }
@@ -239,9 +272,13 @@ label { display:grid; gap:8px; }
   .organizer-shell { grid-template-columns:1fr; }
   .organizer-sidebar { position:static; }
   .organizer-sidebar nav { display:flex; }
-  .field-grid,.structure-grid,.subforms-grid,.staff-layout,.permission-grid,.registration-layout,.registration-grid,.builder-layout { grid-template-columns:1fr; }
+  .field-grid,.structure-grid,.subforms-grid,.staff-layout,.permission-grid,.registration-layout,.registration-grid,.builder-layout,.team-overview,.team-management-layout,.registration-review-grid,.filter-bar { grid-template-columns:1fr; }
   .editor-title-row,.editor-section-heading,.publish-panel { align-items:flex-start; flex-direction:column; }
   .admin-row-meta { align-items:flex-end; flex-direction:column; }
   .dashboard-heading { flex-direction:column; }
   .registration-summary { position:static; }
+  .registration-admin-row { grid-template-columns:1fr; }
+  .organizer-team-list article,.history-list article { align-items:flex-start; flex-direction:column; }
+  .team-member-list article { grid-template-columns:42px minmax(0,1fr); }
+  .team-member-list article>small { grid-column:2; }
 }

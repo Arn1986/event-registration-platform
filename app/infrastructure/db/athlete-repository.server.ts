@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 
 import type { PublishedField } from "../../domain/forms/form-validation";
+import type { EntryType } from "../../domain/teams/team-rules";
 import type { AthleteIdentity } from "../auth/athlete-auth.server";
 import { decryptSensitive, encryptSensitive } from "../security/crypto.server";
 import type { WaiverRecord } from "./form-repository.server";
@@ -42,7 +43,11 @@ export async function saveRegistrationSubmission(input: {
   formVersionId: string; waiver: WaiverRecord; athlete: AthleteProfileInput; isMinor: boolean;
   answers: Array<{ field: PublishedField; values: string[] }>;
   guardian?: { name: string; email: string; relationship: string };
+  entryType: EntryType; idempotencyKey: string; teamId?: string; teamRole?: "captain" | "member"; relayLeg?: string;
 }) {
+  const existing = await database().prepare("SELECT r.id AS registrationId, r.status, r.registration_reference AS registrationReference, g.guardian_email AS guardianEmail FROM registrations r LEFT JOIN guardian_consents g ON g.registration_id = r.id WHERE r.idempotency_key = ?")
+    .bind(input.idempotencyKey).first<{ registrationId: string; status: string; registrationReference: string; guardianEmail: string | null }>();
+  if (existing) return { ...existing, guardianEmail: existing.guardianEmail ?? undefined, existing: true as const };
   const selection = await database().prepare(`SELECT e.id AS eventId, r.id AS raceId,
     CASE WHEN ? IS NULL THEN 1 ELSE EXISTS(SELECT 1 FROM categories c WHERE c.id = ? AND c.race_id = r.id) END AS categoryValid,
     CASE WHEN ? IS NULL THEN 1 ELSE EXISTS(SELECT 1 FROM waves w WHERE w.id = ? AND w.race_id = r.id) END AS waveValid
@@ -55,6 +60,7 @@ export async function saveRegistrationSubmission(input: {
   const { profileId, encryptedMedicalNotes } = await upsertProfile(input.identity, input.athlete);
   const registrationId = id("registration"); const timestamp = now();
   const status = input.isMinor ? "awaiting_guardian_consent" : "submitted";
+  const registrationReference = `3FS-${crypto.randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase()}`;
   const snapshot = {
     firstName: input.athlete.firstName, lastName: input.athlete.lastName, dateOfBirth: input.athlete.dateOfBirth,
     phone: input.athlete.phone, nationality: input.athlete.nationality, clubName: input.athlete.clubName,
@@ -62,10 +68,12 @@ export async function saveRegistrationSubmission(input: {
     medicalNotesEncrypted: encryptedMedicalNotes,
   };
   const statements = [
-    database().prepare(`INSERT INTO registrations (id, event_id, race_id, athlete_profile_id, category_id, wave_id, form_version_id, waiver_version_id, status, athlete_snapshot_json, submitted_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .bind(registrationId, input.eventId, input.raceId, profileId, input.categoryId ?? null, input.waveId ?? null, input.formVersionId, input.waiver.id, status, JSON.stringify(snapshot), timestamp, timestamp, timestamp),
+    database().prepare(`INSERT INTO registrations (id, event_id, race_id, athlete_profile_id, category_id, wave_id, form_version_id, waiver_version_id, entry_type, team_id, registration_reference, idempotency_key, status, athlete_snapshot_json, submitted_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(registrationId, input.eventId, input.raceId, profileId, input.categoryId ?? null, input.waveId ?? null, input.formVersionId, input.waiver.id, input.entryType, input.teamId ?? null, registrationReference, input.idempotencyKey, status, JSON.stringify(snapshot), timestamp, timestamp, timestamp),
     database().prepare("INSERT INTO consent_records (id, registration_id, waiver_version_id, user_id, actor_type, waiver_checksum, accepted_at) VALUES (?, ?, ?, ?, 'athlete', ?, ?)")
       .bind(id("consent"), registrationId, input.waiver.id, input.identity.userId, input.waiver.checksum, timestamp),
+    database().prepare("INSERT INTO registration_status_history (id, registration_id, from_status, to_status, actor_type, actor_reference, reason, created_at) VALUES (?, ?, NULL, ?, 'athlete', ?, 'registration submitted', ?)")
+      .bind(id("status"), registrationId, status, input.identity.email, timestamp),
   ];
   const encryptionKey = secrets().FIELD_ENCRYPTION_KEY!;
   for (const answer of input.answers) {
@@ -75,8 +83,10 @@ export async function saveRegistrationSubmission(input: {
   }
   if (input.guardian) statements.push(database().prepare("INSERT INTO guardian_consents (id, registration_id, guardian_name, guardian_email, relationship, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
     .bind(id("guardian"), registrationId, input.guardian.name, input.guardian.email, input.guardian.relationship, timestamp, timestamp));
+  if (input.teamId && input.teamRole) statements.push(database().prepare("INSERT INTO team_members (id, team_id, registration_id, role, relay_leg, joined_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .bind(id("member"), input.teamId, registrationId, input.teamRole, input.relayLeg ?? null, timestamp, timestamp));
   await database().batch(statements);
-  return { registrationId, status, guardianEmail: input.guardian?.email };
+  return { registrationId, registrationReference, status, guardianEmail: input.guardian?.email, existing: false as const };
 }
 
 export async function attachGuardianChallenge(registrationId: string, challengeId: string) {
@@ -98,19 +108,20 @@ export async function recordGuardianConsent(registrationId: string, guardianEmai
     database().prepare("UPDATE guardian_consents SET consented_at = ?, updated_at = ? WHERE id = ? AND consented_at IS NULL").bind(timestamp, timestamp, record.id),
     database().prepare("UPDATE registrations SET status = 'submitted', updated_at = ? WHERE id = ? AND status = 'awaiting_guardian_consent'").bind(timestamp, registrationId),
     database().prepare("INSERT INTO consent_records (id, registration_id, waiver_version_id, user_id, actor_type, waiver_checksum, accepted_at) VALUES (?, ?, ?, ?, 'guardian', ?, ?)").bind(id("consent"), registrationId, record.waiverVersionId, user.id, record.waiverChecksum, timestamp),
+    database().prepare("INSERT INTO registration_status_history (id, registration_id, from_status, to_status, actor_type, actor_reference, reason, created_at) VALUES (?, ?, 'awaiting_guardian_consent', 'submitted', 'guardian', ?, 'guardian consent verified', ?)").bind(id("status"), registrationId, guardianEmail, timestamp),
   ]);
   return true;
 }
 
 export async function listAthleteRegistrations(userId: string) {
-  const result = await database().prepare(`SELECT r.id, r.status, r.created_at AS createdAt, e.name AS eventName, e.slug AS eventSlug, e.starts_at AS eventStartsAt, e.venue_name AS venueName, race.name AS raceName, c.name AS categoryName, w.name AS waveName FROM registrations r JOIN athlete_profiles p ON p.id = r.athlete_profile_id JOIN events e ON e.id = r.event_id JOIN races race ON race.id = r.race_id LEFT JOIN categories c ON c.id = r.category_id LEFT JOIN waves w ON w.id = r.wave_id WHERE p.user_id = ? ORDER BY e.starts_at DESC`)
-    .bind(userId).all<{ id: string; status: string; createdAt: string; eventName: string; eventSlug: string; eventStartsAt: string; venueName: string; raceName: string; categoryName: string | null; waveName: string | null }>();
+  const result = await database().prepare(`SELECT r.id, r.status, r.entry_type AS entryType, r.registration_reference AS registrationReference, r.team_id AS teamId, t.name AS teamName, r.created_at AS createdAt, e.name AS eventName, e.slug AS eventSlug, e.starts_at AS eventStartsAt, e.venue_name AS venueName, race.name AS raceName, c.name AS categoryName, w.name AS waveName FROM registrations r JOIN athlete_profiles p ON p.id = r.athlete_profile_id JOIN events e ON e.id = r.event_id JOIN races race ON race.id = r.race_id LEFT JOIN categories c ON c.id = r.category_id LEFT JOIN waves w ON w.id = r.wave_id LEFT JOIN teams t ON t.id = r.team_id WHERE p.user_id = ? ORDER BY e.starts_at DESC`)
+    .bind(userId).all<{ id: string; status: string; entryType: EntryType; registrationReference: string; teamId: string | null; teamName: string | null; createdAt: string; eventName: string; eventSlug: string; eventStartsAt: string; venueName: string; raceName: string; categoryName: string | null; waveName: string | null }>();
   return result.results;
 }
 
 export async function getAthleteRegistration(userId: string, registrationId: string) {
-  return database().prepare(`SELECT r.id, r.status, r.created_at AS createdAt, e.name AS eventName, e.slug AS eventSlug, e.starts_at AS eventStartsAt, e.venue_name AS venueName, race.name AS raceName, c.name AS categoryName, w.name AS waveName, g.guardian_email AS guardianEmail, g.consented_at AS guardianConsentedAt FROM registrations r JOIN athlete_profiles p ON p.id = r.athlete_profile_id JOIN events e ON e.id = r.event_id JOIN races race ON race.id = r.race_id LEFT JOIN categories c ON c.id = r.category_id LEFT JOIN waves w ON w.id = r.wave_id LEFT JOIN guardian_consents g ON g.registration_id = r.id WHERE p.user_id = ? AND r.id = ?`)
-    .bind(userId, registrationId).first<{ id: string; status: string; createdAt: string; eventName: string; eventSlug: string; eventStartsAt: string; venueName: string; raceName: string; categoryName: string | null; waveName: string | null; guardianEmail: string | null; guardianConsentedAt: string | null }>();
+  return database().prepare(`SELECT r.id, r.status, r.entry_type AS entryType, r.registration_reference AS registrationReference, r.team_id AS teamId, t.name AS teamName, r.created_at AS createdAt, e.name AS eventName, e.slug AS eventSlug, e.starts_at AS eventStartsAt, e.venue_name AS venueName, race.name AS raceName, c.name AS categoryName, w.name AS waveName, g.guardian_email AS guardianEmail, g.consented_at AS guardianConsentedAt FROM registrations r JOIN athlete_profiles p ON p.id = r.athlete_profile_id JOIN events e ON e.id = r.event_id JOIN races race ON race.id = r.race_id LEFT JOIN categories c ON c.id = r.category_id LEFT JOIN waves w ON w.id = r.wave_id LEFT JOIN guardian_consents g ON g.registration_id = r.id LEFT JOIN teams t ON t.id = r.team_id WHERE p.user_id = ? AND r.id = ?`)
+    .bind(userId, registrationId).first<{ id: string; status: string; entryType: EntryType; registrationReference: string; teamId: string | null; teamName: string | null; createdAt: string; eventName: string; eventSlug: string; eventStartsAt: string; venueName: string; raceName: string; categoryName: string | null; waveName: string | null; guardianEmail: string | null; guardianConsentedAt: string | null }>();
 }
 
 export async function getGuardianConsentSummary(registrationId: string) {

@@ -3,8 +3,9 @@ import type { Route } from "./+types/organizer-event-editor";
 import { hasPermission } from "../domain/auth/rbac";
 import { canTransitionEvent, type EventStatus } from "../domain/events/lifecycle";
 import { categoryInputSchema, eventInputSchema, raceInputSchema, waveInputSchema } from "../domain/events/event-validation";
+import { raceEntrySettingsSchema } from "../domain/teams/team-rules";
 import { requireOrganizer } from "../infrastructure/auth/organizer-session.server";
-import { addCategory, addRace, addWave, getEvent, rotatePrivateLink, setEventStatus, updateEvent } from "../infrastructure/db/event-repository.server";
+import { addCategory, addRace, addWave, getEvent, rotatePrivateLink, setEventStatus, updateEvent, updateRaceEntrySettings } from "../infrastructure/db/event-repository.server";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const session = await requireOrganizer(request);
@@ -53,6 +54,13 @@ export async function action({ request, params }: Route.ActionArgs) {
       if (!result.success) return data({ ok: false as const, message: result.error.issues[0]?.message ?? "Check the wave." }, { status: 400 });
       await addWave(params.eventId, result.data, session.email); return { ok: true as const, message: "Wave added." };
     }
+    if (intent === "entry-settings") {
+      if (!hasPermission(session.role, "events.edit")) return data({ ok: false as const, message: "Your role cannot edit race entry settings." }, { status: 403 });
+      const result = raceEntrySettingsSchema.safeParse({ entryModes: formData.getAll("entryModes"), teamMinSize: formData.get("teamMinSize"), teamMaxSize: formData.get("teamMaxSize") });
+      if (!result.success) return data({ ok: false as const, message: result.error.issues[0]?.message ?? "Check the entry settings." }, { status: 400 });
+      await updateRaceEntrySettings(String(formData.get("raceId")), result.data.entryModes, result.data.teamMinSize, result.data.teamMaxSize, session.email);
+      return { ok: true as const, message: "Race entry settings saved." };
+    }
     if (intent === "rotate-link") {
       if (!hasPermission(session.role, "events.edit")) return data({ ok: false as const, message: "Your role cannot rotate access links." }, { status: 403 });
       if (current.event.visibility !== "private") return data({ ok: false as const, message: "Private links apply only to private events." }, { status: 400 });
@@ -75,7 +83,7 @@ export default function OrganizerEventEditor({ loaderData, actionData }: Route.C
   return (
     <>
       <Link className="back-link" to="/organizer">← Events</Link>
-      <div className="editor-title-row"><div><div className="pill-row"><span className={`pill status-${event.status}`}>{event.status}</span><span className="pill">{event.visibility}</span></div><h1>{event.name}</h1><p>{event.slug}</p></div><div className="button-row compact-buttons"><Link className="button button-muted" to={`/organizer/events/${event.id}/form`}>Form & waiver</Link><Link className="button button-muted" to={`/events/${event.slug}`}>Public preview</Link></div></div>
+      <div className="editor-title-row"><div><div className="pill-row"><span className={`pill status-${event.status}`}>{event.status}</span><span className="pill">{event.visibility}</span></div><h1>{event.name}</h1><p>{event.slug}</p></div><div className="button-row compact-buttons"><Link className="button button-muted" to={`/organizer/events/${event.id}/registrations`}>Registrations</Link><Link className="button button-muted" to={`/organizer/events/${event.id}/teams`}>Teams</Link><Link className="button button-muted" to={`/organizer/events/${event.id}/form`}>Form & waiver</Link><Link className="button button-muted" to={`/events/${event.slug}`}>Public preview</Link></div></div>
       {actionData ? <div className={actionData.ok ? "form-message form-success" : "form-message form-error"}><span>{actionData.message}</span>{"privateUrl" in actionData && actionData.privateUrl ? <input readOnly value={actionData.privateUrl} onFocus={(event) => event.currentTarget.select()} /> : null}</div> : null}
 
       <section className="editor-section">
@@ -99,6 +107,7 @@ export default function OrganizerEventEditor({ loaderData, actionData }: Route.C
                 <div className="structure-card-title"><div><span>{race.discipline}</span><h3>{race.name}</h3></div><strong>{race.distanceValue} {race.distanceUnit}</strong></div>
                 <p>{capacityLabel(race.capacity)} · {new Date(race.startsAt).toLocaleString("en-AE", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Dubai" })}</p>
                 <div className="structure-tags">{categories.filter((item) => item.raceId === race.id).map((item) => <span key={item.id}>Category: {item.name}</span>)}{waves.filter((item) => item.raceId === race.id).map((item) => <span key={item.id}>Wave: {item.name}</span>)}</div>
+                <details className="entry-settings"><summary>Entry modes</summary><Form method="post"><input type="hidden" name="intent" value="entry-settings" /><input type="hidden" name="raceId" value={race.id} /><div className="check-grid">{(["individual", "team", "relay"] as const).map((mode) => <label className="check-row" key={mode}><input type="checkbox" name="entryModes" value={mode} defaultChecked={(JSON.parse(race.entryModesJson) as string[]).includes(mode)} /><span>{mode}</span></label>)}</div><div className="field-grid"><label>Minimum team size<input name="teamMinSize" type="number" min="2" max="100" defaultValue={race.teamMinSize} /></label><label>Maximum team size<input name="teamMaxSize" type="number" min="2" max="100" defaultValue={race.teamMaxSize} /></label></div><button className="button button-muted" type="submit">Save entry modes</button></Form></details>
               </article>
             ))}
           </div>

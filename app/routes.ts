@@ -9,6 +9,9 @@ export default [
   route("athlete/logout", "routes/athlete-logout.tsx"),
   route("registrations/:registrationId/confirmation", "routes/registration-confirmation.tsx"),
   route("guardian/consent/:registrationId", "routes/guardian-consent.tsx"),
+  route("teams/join", "routes/team-join.tsx"),
+  route("teams/invitations/:token", "routes/team-invitation.tsx"),
+  route("dashboard/teams/:teamId", "routes/athlete-team.tsx"),
   route("organizer/login", "routes/organizer-login.tsx"),
   route("organizer/logout", "routes/organizer-logout.tsx"),
   route("organizer", "routes/organizer-layout.tsx", [
@@ -16,6 +19,9 @@ export default [
     route("events/new", "routes/organizer-event-new.tsx"),
     route("events/:eventId", "routes/organizer-event-editor.tsx"),
     route("events/:eventId/form", "routes/organizer-event-form.tsx"),
+    route("events/:eventId/registrations", "routes/organizer-registrations.tsx"),
+    route("events/:eventId/registrations/:registrationId", "routes/organizer-registration-detail.tsx"),
+    route("events/:eventId/teams", "routes/organizer-teams.tsx"),
     route("staff", "routes/organizer-staff.tsx"),
   ]),
 ] satisfies RouteConfig;
