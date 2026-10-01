@@ -33,8 +33,12 @@ export async function listPublishedEvents() {
 export async function getPublishedEventBySlug(slug: string) {
   const event = await database().prepare(`SELECT id, slug, name, summary, status, visibility, starts_at AS startsAt, timezone, venue_name AS venueName, capacity FROM events WHERE organization_id = ? AND slug = ? AND status = 'published'`).bind(ORGANIZATION_ID, slug).first<EventRecord>();
   if (!event) return null;
-  const races = await database().prepare(`SELECT id, event_id AS eventId, name, discipline, distance_value AS distanceValue, distance_unit AS distanceUnit, starts_at AS startsAt, capacity FROM races WHERE event_id = ? ORDER BY starts_at`).bind(event.id).all<RaceRecord>();
-  return { event, races: races.results };
+  const [races, categories, waves] = await Promise.all([
+    database().prepare(`SELECT id, event_id AS eventId, name, discipline, distance_value AS distanceValue, distance_unit AS distanceUnit, starts_at AS startsAt, capacity FROM races WHERE event_id = ? ORDER BY starts_at`).bind(event.id).all<RaceRecord>(),
+    database().prepare(`SELECT id, event_id AS eventId, race_id AS raceId, name, description, capacity FROM categories WHERE event_id = ? ORDER BY sort_order, name`).bind(event.id).all<CategoryRecord>(),
+    database().prepare(`SELECT id, event_id AS eventId, race_id AS raceId, name, starts_at AS startsAt, capacity FROM waves WHERE event_id = ? ORDER BY sort_order, starts_at`).bind(event.id).all<WaveRecord>(),
+  ]);
+  return { event, races: races.results, categories: categories.results, waves: waves.results };
 }
 
 export async function validatePrivateEventAccess(eventId: string, rawToken: string | null) {

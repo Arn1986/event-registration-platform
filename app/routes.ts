@@ -4,13 +4,18 @@ export default [
   index("routes/home.tsx"),
   route("events/:eventSlug", "routes/event-detail.tsx"),
   route("events/:eventSlug/register", "routes/register.tsx"),
+  route("auth/verify", "routes/auth-verify.tsx"),
   route("dashboard", "routes/dashboard.tsx"),
+  route("athlete/logout", "routes/athlete-logout.tsx"),
+  route("registrations/:registrationId/confirmation", "routes/registration-confirmation.tsx"),
+  route("guardian/consent/:registrationId", "routes/guardian-consent.tsx"),
   route("organizer/login", "routes/organizer-login.tsx"),
   route("organizer/logout", "routes/organizer-logout.tsx"),
   route("organizer", "routes/organizer-layout.tsx", [
     index("routes/organizer-events.tsx"),
     route("events/new", "routes/organizer-event-new.tsx"),
     route("events/:eventId", "routes/organizer-event-editor.tsx"),
+    route("events/:eventId/form", "routes/organizer-event-form.tsx"),
     route("staff", "routes/organizer-staff.tsx"),
   ]),
 ] satisfies RouteConfig;

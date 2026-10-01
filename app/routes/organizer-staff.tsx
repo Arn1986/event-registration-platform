@@ -18,7 +18,7 @@ export async function action({ request }: Route.ActionArgs) {
   const result = invitationSchema.safeParse(Object.fromEntries(await request.formData()));
   if (!result.success) return data({ ok: false as const, message: "Enter a valid email and role." }, { status: 400 });
   await inviteStaff(result.data.email, result.data.role, session.email);
-  return { ok: true as const, message: `Invitation prepared for ${result.data.email}. Email delivery will be connected in Phase 2.` };
+  return { ok: true as const, message: `Membership saved for ${result.data.email}. Staff sign-in activation is planned for a later security milestone.` };
 }
 
 const roleLabels: Record<OrganizerRole, string> = { owner: "Owner", admin: "Administrator", event_manager: "Event manager", registration_reviewer: "Registration reviewer" };
@@ -37,7 +37,7 @@ export default function OrganizerStaff({ loaderData, actionData }: Route.Compone
           ))}
         </section>
         <aside className="admin-form-card staff-invite-card">
-          <h2>Invite staff</h2><p>The membership is stored now; the invitation email will activate in Phase 2.</p>
+          <h2>Invite staff</h2><p>The membership is stored now; staff sign-in activation will follow in a later security milestone.</p>
           <Form method="post" className="form-stack"><label>Email<input name="email" type="email" required /></label><label>Role<select name="role" defaultValue="event_manager">{organizerRoles.map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}</select></label><button className="button button-primary button-full" type="submit" disabled={!loaderData.canManage || navigation.state === "submitting"}>Add staff member</button></Form>
         </aside>
       </div>

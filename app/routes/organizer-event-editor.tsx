@@ -75,7 +75,7 @@ export default function OrganizerEventEditor({ loaderData, actionData }: Route.C
   return (
     <>
       <Link className="back-link" to="/organizer">← Events</Link>
-      <div className="editor-title-row"><div><div className="pill-row"><span className={`pill status-${event.status}`}>{event.status}</span><span className="pill">{event.visibility}</span></div><h1>{event.name}</h1><p>{event.slug}</p></div><Link className="button button-muted" to={`/events/${event.slug}`}>Public preview</Link></div>
+      <div className="editor-title-row"><div><div className="pill-row"><span className={`pill status-${event.status}`}>{event.status}</span><span className="pill">{event.visibility}</span></div><h1>{event.name}</h1><p>{event.slug}</p></div><div className="button-row compact-buttons"><Link className="button button-muted" to={`/organizer/events/${event.id}/form`}>Form & waiver</Link><Link className="button button-muted" to={`/events/${event.slug}`}>Public preview</Link></div></div>
       {actionData ? <div className={actionData.ok ? "form-message form-success" : "form-message form-error"}><span>{actionData.message}</span>{"privateUrl" in actionData && actionData.privateUrl ? <input readOnly value={actionData.privateUrl} onFocus={(event) => event.currentTarget.select()} /> : null}</div> : null}
 
       <section className="editor-section">
