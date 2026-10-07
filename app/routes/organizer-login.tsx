@@ -20,6 +20,9 @@ export default function OrganizerLogin({ loaderData, actionData }: Route.Compone
   return (
     <main className="narrow-page section-space">
       <section className="form-card organizer-login-card">
+        <div className="login-logo-wrap">
+          <img src="/images/logo.png" alt="3F Striders" className="login-logo" width="64" height="64" />
+        </div>
         <span className="eyebrow eyebrow-dark">Organizer access</span>
         <h1>Manage 3F events</h1>
         {!loaderData.configured ? (

@@ -27,6 +27,8 @@ export const links: Route.LinksFunction = () => [
     rel: "stylesheet",
     href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
   },
+  { rel: "icon", type: "image/png", href: "/images/logo.png" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -42,14 +44,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <header className="site-header">
           <div className="page-width header-inner">
             <Link className="brand" to="/" aria-label="3F Striders Events home">
-              <span className="brand-mark">3F</span>
-              <span><strong>STRIDERS</strong><small>EVENTS</small></span>
+              <img
+                src="/images/logo.png"
+                alt="3F Striders"
+                className="brand-logo"
+                width="44"
+                height="44"
+              />
+              <span className="brand-text"><strong>STRIDERS</strong><small>EVENTS</small></span>
             </Link>
             <nav aria-label="Main navigation"><Link to="/">Events</Link><Link to="/dashboard">Athlete dashboard</Link><Link className="nav-organizer" to="/organizer">Organizer</Link></nav>
           </div>
         </header>
         {children}
-        <footer className="site-footer"><div className="page-width footer-inner"><span>© 3F Striders</span><span>Race registration built for the UAE</span></div></footer>
+        <footer className="site-footer">
+          <div className="page-width footer-inner">
+            <div className="footer-brand">
+              <img
+                src="/images/logo.png"
+                alt="3F Striders"
+                className="footer-logo"
+                width="32"
+                height="32"
+              />
+              <span>© {new Date().getFullYear()} 3F Striders</span>
+            </div>
+            <span>Race registration built for the UAE</span>
+          </div>
+        </footer>
         <SafeScrollRestoration />
         <Scripts />
       </body>

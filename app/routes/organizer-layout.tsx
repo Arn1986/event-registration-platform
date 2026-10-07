@@ -8,7 +8,10 @@ export default function OrganizerLayout({ loaderData }: Route.ComponentProps) {
   return (
     <main className="organizer-shell page-width">
       <aside className="organizer-sidebar">
-        <div><span className="eyebrow eyebrow-dark">Organizer</span><strong>Event control</strong></div>
+        <div className="organizer-brand-badge">
+          <img src="/images/logo.png" alt="3F Striders" className="organizer-sidebar-logo" width="36" height="36" />
+          <div><span className="eyebrow eyebrow-dark">Organizer</span><strong>Event control</strong></div>
+        </div>
         <nav aria-label="Organizer navigation">
           <NavLink to="/organizer" end>Events</NavLink>
           <NavLink to="/organizer/staff">Staff & roles</NavLink>

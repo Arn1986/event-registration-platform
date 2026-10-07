@@ -9,6 +9,7 @@ export function meta({}: Route.MetaArgs) {
     { name: "description", content: "Event and race registration platform for 3F Striders, featuring race management, athlete dashboards, organizer tools, and digital passes." },
     { property: "og:title", content: "3F Striders Event Registration" },
     { property: "og:description", content: "Event and race registration platform for 3F Striders, featuring race management, athlete dashboards, organizer tools, and digital passes." },
+    { property: "og:image", content: "/images/logo.png" },
   ];
 }
 
@@ -20,7 +21,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       <section className="hero-shell">
         <div className="hero-grid page-width">
           <div className="hero-copy">
-            <span className="eyebrow">Run · Swim · Bike · Triathlon</span>
+            <div className="hero-kicker-row">
+              <img src="/images/logo.png" alt="3F Striders" className="hero-logo-badge" width="32" height="32" />
+              <span className="eyebrow">Run · Swim · Bike · Triathlon</span>
+            </div>
             <h1>Your next start line begins here.</h1>
             <p>Register for 3F Striders events, keep your race information in one place, and carry your confirmation in Apple or Google Wallet.</p>
             <div className="button-row">
