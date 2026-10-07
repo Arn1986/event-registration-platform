@@ -14,6 +14,7 @@ export default function OrganizerLayout({ loaderData }: Route.ComponentProps) {
         </div>
         <nav aria-label="Organizer navigation">
           <NavLink to="/organizer" end>Events</NavLink>
+          <NavLink to="/organizer/hero">Hero carousel</NavLink>
           <NavLink to="/organizer/staff">Staff & roles</NavLink>
         </nav>
         <div className="organizer-account"><span>{loaderData.session.email}</span><small>{loaderData.session.role.replace("_", " ")}</small><Form action="/organizer/logout" method="post"><button type="submit">Sign out</button></Form></div>

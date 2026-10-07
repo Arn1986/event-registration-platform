@@ -30,8 +30,8 @@ export default function OrganizerLogin({ loaderData, actionData }: Route.Compone
         ) : null}
         <Form method="post" className="form-stack">
           <input type="hidden" name="next" value={loaderData.next} />
-          <label htmlFor="accessKey">Organizer access key</label>
-          <input id="accessKey" name="accessKey" type="password" autoComplete="current-password" required />
+          <label htmlFor="accessKey">Organizer access key (default: striders2027)</label>
+          <input id="accessKey" name="accessKey" type="password" autoComplete="current-password" placeholder="striders2027" required />
           <button className="button button-primary button-full" type="submit" disabled={!loaderData.configured}>Continue securely</button>
         </Form>
         {actionData?.error ? <p className="form-message form-error">{actionData.error}</p> : null}

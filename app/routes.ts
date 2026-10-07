@@ -23,6 +23,7 @@ export default [
     route("events/:eventId/registrations", "routes/organizer-registrations.tsx"),
     route("events/:eventId/registrations/:registrationId", "routes/organizer-registration-detail.tsx"),
     route("events/:eventId/teams", "routes/organizer-teams.tsx"),
+    route("hero", "routes/organizer-hero.tsx"),
     route("staff", "routes/organizer-staff.tsx"),
   ]),
 ] satisfies RouteConfig;

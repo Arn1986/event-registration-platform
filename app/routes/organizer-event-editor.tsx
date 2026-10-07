@@ -1,3 +1,4 @@
+import { useState, useRef, type ChangeEvent } from "react";
 import { Form, Link, data, useNavigation } from "react-router";
 import type { Route } from "./+types/organizer-event-editor";
 import { hasPermission } from "../domain/auth/rbac";
@@ -84,9 +85,36 @@ export async function action({ request, params }: Route.ActionArgs) {
 function localDateTime(value: string) { return value.slice(0, 16); }
 function capacityLabel(value: number | null) { return value === null ? "Unlimited" : `${value} places`; }
 
+const EVENT_PRESET_IMAGES = [
+  { label: "Road Marathon", url: "/images/presets/slide1_running_dawn.jpg" },
+  { label: "Triathlon / Cycling", url: "/images/presets/slide2_triathlon_bike.jpg" },
+  { label: "Open Water Swim", url: "/images/presets/slide3_open_water.jpg" },
+  { label: "Track Sprint", url: "/images/presets/slide4_stadium_track.jpg" },
+  { label: "Finish Line", url: "/images/presets/slide5_finish_line.jpg" },
+];
+
 export default function OrganizerEventEditor({ loaderData, actionData }: Route.ComponentProps) {
   const navigation = useNavigation(); const saving = navigation.state === "submitting";
   const { event, races, categories, waves } = loaderData;
+
+  const [imageUrl, setImageUrl] = useState(event.imageUrl ?? "");
+  const [imageMode, setImageMode] = useState<"preset" | "upload" | "url">("preset");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      alert("Please select a valid image file.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setImageUrl(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <>
       <Link className="back-link" to="/organizer">← Events</Link>
@@ -94,11 +122,127 @@ export default function OrganizerEventEditor({ loaderData, actionData }: Route.C
       {actionData ? <div className={actionData.ok ? "form-message form-success" : "form-message form-error"}><span>{actionData.message}</span>{"privateUrl" in actionData && actionData.privateUrl ? <input readOnly value={actionData.privateUrl} onFocus={(event) => event.currentTarget.select()} /> : null}</div> : null}
 
       <section className="editor-section">
-        <div className="editor-section-heading"><div><span>01</span><h2>Event details</h2></div><p>Core information, access, and overall capacity.</p></div>
+        <div className="editor-section-heading"><div><span>01</span><h2>Event details</h2></div><p>Core information, banner image, access, and overall capacity.</p></div>
         <Form method="post" className="admin-form-card">
           <input type="hidden" name="intent" value="save-event" />
           <div className="field-grid"><label>Event name<input name="name" defaultValue={event.name} required /></label><label>URL slug<input name="slug" defaultValue={event.slug} required /></label></div>
           <label>Summary<textarea name="summary" rows={4} defaultValue={event.summary} /></label>
+
+          {/* Banner Image Editor */}
+          <div style={{ marginTop: "1rem", marginBottom: "1.5rem" }}>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: 700 }}>
+              Event Banner Image
+            </label>
+            <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: "0.85rem" }}>
+              Displayed on homepage event cards and as the prominent hero banner on the event registration page.
+            </p>
+            <input type="hidden" name="imageUrl" value={imageUrl} />
+
+            <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => setImageMode("preset")}
+                className={`button ${imageMode === "preset" ? "button-primary" : "button-muted"}`}
+                style={{ minHeight: "36px", padding: "0 14px", fontSize: "0.8rem" }}
+              >
+                Choose Preset
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageMode("upload")}
+                className={`button ${imageMode === "upload" ? "button-primary" : "button-muted"}`}
+                style={{ minHeight: "36px", padding: "0 14px", fontSize: "0.8rem" }}
+              >
+                Upload Photo
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageMode("url")}
+                className={`button ${imageMode === "url" ? "button-primary" : "button-muted"}`}
+                style={{ minHeight: "36px", padding: "0 14px", fontSize: "0.8rem" }}
+              >
+                Image URL
+              </button>
+              {imageUrl ? (
+                <button
+                  type="button"
+                  onClick={() => setImageUrl("")}
+                  className="button button-muted"
+                  style={{ minHeight: "36px", padding: "0 12px", fontSize: "0.8rem", marginLeft: "auto" }}
+                >
+                  Remove Image
+                </button>
+              ) : null}
+            </div>
+
+            {imageMode === "preset" ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "10px", marginBottom: "14px" }}>
+                {EVENT_PRESET_IMAGES.map((preset) => {
+                  const isSelected = imageUrl === preset.url;
+                  return (
+                    <button
+                      type="button"
+                      key={preset.url}
+                      onClick={() => setImageUrl(preset.url)}
+                      style={{
+                        border: isSelected ? "2px solid var(--purple)" : "1px solid var(--line)",
+                        borderRadius: "10px",
+                        overflow: "hidden",
+                        padding: "4px",
+                        background: isSelected ? "rgba(99,54,223,0.06)" : "var(--surface)",
+                        cursor: "pointer",
+                        textAlign: "center",
+                      }}
+                    >
+                      <img src={preset.url} alt={preset.label} style={{ width: "100%", height: "65px", objectFit: "cover", borderRadius: "6px" }} />
+                      <span style={{ fontSize: "0.75rem", fontWeight: 700, display: "block", marginTop: "4px" }}>{preset.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {imageMode === "upload" ? (
+              <div style={{ marginBottom: "14px" }}>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleFileUpload}
+                  style={{ display: "block", width: "100%", padding: "10px", border: "1px dashed var(--line)", borderRadius: "8px" }}
+                />
+              </div>
+            ) : null}
+
+            {imageMode === "url" ? (
+              <div style={{ marginBottom: "14px" }}>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--line)" }}
+                />
+              </div>
+            ) : null}
+
+            {/* Banner Live Preview */}
+            {imageUrl ? (
+              <div style={{ position: "relative", height: "140px", borderRadius: "14px", overflow: "hidden", border: "1px solid var(--line)", display: "flex", alignItems: "flex-end", padding: "16px" }}>
+                <img src={imageUrl} alt="Banner preview" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(16,19,26,0.2) 0%, rgba(16,19,26,0.85) 100%)" }} />
+                <div style={{ position: "relative", zIndex: 1, color: "#fff" }}>
+                  <span className="eyebrow" style={{ color: "var(--lime)", fontSize: "0.68rem" }}>Banner preview</span>
+                  <strong style={{ display: "block", fontSize: "1rem" }}>{event.name}</strong>
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: "14px", borderRadius: "10px", background: "var(--paper)", border: "1px dashed var(--line)", color: "var(--muted)", fontSize: "0.85rem", textAlign: "center" }}>
+                No custom banner image set.
+              </div>
+            )}
+          </div>
+
           <div className="field-grid"><label>Start date and time<input name="startsAt" type="datetime-local" defaultValue={localDateTime(event.startsAt)} required /></label><label>Venue<input name="venueName" defaultValue={event.venueName} required /></label></div>
           <div className="field-grid"><label>Visibility<select name="visibility" defaultValue={event.visibility}><option value="public">Public</option><option value="private">Private link</option></select></label><label>Overall capacity<input name="capacity" type="number" min="1" defaultValue={event.capacity ?? ""} placeholder="Unlimited" /></label></div>
           <div className="admin-form-actions"><span className="save-hint">All times use Asia/Dubai.</span><button className="button button-primary" type="submit" disabled={!loaderData.permissions.edit || saving}>{saving ? "Saving…" : "Save details"}</button></div>

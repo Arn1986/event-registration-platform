@@ -19,6 +19,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return [
     { title: `${loaderData?.event.name ?? "Event"} | 3F Striders` },
     { name: "description", content: loaderData?.event.summary },
+    { property: "og:image", content: loaderData?.event.imageUrl ?? "/images/logo.png" },
   ];
 }
 
@@ -28,11 +29,17 @@ export default function EventDetail({ loaderData }: Route.ComponentProps) {
     <main className="page-width section-space">
       <Link className="back-link" to="/">← All events</Link>
       <section className="event-hero">
-        <div>
+        {event.imageUrl ? (
+          <>
+            <img src={event.imageUrl} alt={event.name} className="event-hero-banner-img" />
+            <div className="event-hero-banner-overlay" />
+          </>
+        ) : null}
+        <div className="event-hero-content">
           <div className="pill-row"><span className="pill">Running</span><span className="pill pill-open">Registration open</span></div>
           <h1>{event.name}</h1><p>{event.summary}</p>
         </div>
-        <aside className="date-panel"><span>{startsAt.toLocaleString("en-AE", { day: "2-digit", timeZone: "Asia/Dubai" })}</span><strong>{startsAt.toLocaleString("en-AE", { month: "short", year: "numeric", timeZone: "Asia/Dubai" }).toUpperCase()}</strong></aside>
+        <aside className="date-panel event-hero-date-wrap"><span>{startsAt.toLocaleString("en-AE", { day: "2-digit", timeZone: "Asia/Dubai" })}</span><strong>{startsAt.toLocaleString("en-AE", { month: "short", year: "numeric", timeZone: "Asia/Dubai" }).toUpperCase()}</strong></aside>
       </section>
       <section className="event-layout">
         <div>

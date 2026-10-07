@@ -33,7 +33,9 @@ class ResendEmailProvider implements EmailProvider {
 
 export function emailDeliveryConfigured() {
   const config = configuration();
-  return Boolean((config.RESEND_API_KEY && config.EMAIL_FROM) || process.env.NODE_ENV !== "production");
+  const nodeEnv = (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process?.env?.NODE_ENV;
+  const isDev = nodeEnv !== "production";
+  return Boolean((config.RESEND_API_KEY && config.EMAIL_FROM) || isDev);
 }
 
 export const emailProvider: EmailProvider = new ResendEmailProvider();

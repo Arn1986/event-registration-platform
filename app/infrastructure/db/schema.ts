@@ -39,6 +39,7 @@ export const sessions = sqliteTable("sessions", {
 export const events = sqliteTable("events", {
   id: text("id").primaryKey(), organizationId: text("organization_id").notNull().references(() => organizations.id),
   slug: text("slug").notNull(), name: text("name").notNull(), summary: text("summary").notNull().default(""),
+  imageUrl: text("image_url"),
   status: text("status", { enum: ["draft", "published", "closed", "cancelled", "completed"] }).notNull().default("draft"),
   visibility: text("visibility", { enum: ["public", "private"] }).notNull().default("public"),
   startsAt: text("starts_at").notNull(), timezone: text("timezone").notNull().default("Asia/Dubai"),
@@ -190,3 +191,15 @@ export const auditLogs = sqliteTable("audit_logs", {
   actorUserId: text("actor_user_id"), action: text("action").notNull(), targetType: text("target_type").notNull(),
   targetId: text("target_id").notNull(), metadataJson: text("metadata_json").notNull().default("{}"), createdAt: text("created_at").notNull(),
 }, (table) => [index("audit_logs_org_created_idx").on(table.organizationId, table.createdAt)]);
+
+export const heroSlides = sqliteTable("hero_slides", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id").notNull().references(() => organizations.id),
+  imageUrl: text("image_url").notNull(),
+  title: text("title"),
+  caption: text("caption"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  ...timestamps,
+}, (table) => [index("hero_slides_org_sort_idx").on(table.organizationId, table.sortOrder)]);
+
