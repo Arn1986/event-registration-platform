@@ -57,6 +57,12 @@ export async function revokeProviderPass(serialNumber: string) {
 }
 
 export function decodeApplePass(value: string) {
-  const binary = atob(value);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const sanitized = value.trim().replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+  const normalized = sanitized.padEnd(Math.ceil(sanitized.length / 4) * 4, "=");
+  const binary = atob(normalized);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
 }

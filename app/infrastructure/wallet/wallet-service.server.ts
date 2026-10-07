@@ -139,7 +139,19 @@ export async function getWalletDelivery(registrationId: string, token: string) {
   if (!safeEqual(expected, token)) return null;
   const [registration, wallet] = await Promise.all([loadRegistration(registrationId), loadWallet(registrationId)]);
   if (!registration || !wallet || wallet.status !== "active" || !wallet.appleObjectKey) return null;
-  return { registration, wallet, object: await value.PASSES.get(wallet.appleObjectKey) };
+  let object = await value.PASSES.get(wallet.appleObjectKey);
+  if (!object && registration.status === "confirmed") {
+    try {
+      await issueWalletPass(registrationId);
+      const reloaded = await loadWallet(registrationId);
+      if (reloaded?.appleObjectKey) {
+        object = await value.PASSES.get(reloaded.appleObjectKey);
+      }
+    } catch (error) {
+      console.error("Auto-regenerating pass object failed:", error);
+    }
+  }
+  return { registration, wallet, object };
 }
 
 export async function getWalletSummary(registrationId: string) {
