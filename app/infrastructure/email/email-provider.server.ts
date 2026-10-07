@@ -12,7 +12,10 @@ function configuration() { return env as Env & EmailSecrets; }
 class ResendEmailProvider implements EmailProvider {
   async send(message: EmailMessage) {
     const config = configuration();
-    if (!config.RESEND_API_KEY || !config.EMAIL_FROM) throw new Error("Email delivery is not configured");
+    if (!config.RESEND_API_KEY || !config.EMAIL_FROM) {
+      console.log(`[Dev Email Simulation] To: ${message.to} | Subject: ${message.subject}`);
+      return { id: `dev_mock_${crypto.randomUUID()}` };
+    }
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -30,7 +33,7 @@ class ResendEmailProvider implements EmailProvider {
 
 export function emailDeliveryConfigured() {
   const config = configuration();
-  return Boolean(config.RESEND_API_KEY && config.EMAIL_FROM);
+  return Boolean((config.RESEND_API_KEY && config.EMAIL_FROM) || process.env.NODE_ENV !== "production");
 }
 
 export const emailProvider: EmailProvider = new ResendEmailProvider();

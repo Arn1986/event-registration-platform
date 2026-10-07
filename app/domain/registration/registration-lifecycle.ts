@@ -15,6 +15,10 @@ export function canTransitionRegistration(from: RegistrationStatus, to: Registra
   return transitions[from].includes(to);
 }
 
+export function isActiveRegistrationStatus(status: RegistrationStatus | string): boolean {
+  return status !== "cancelled";
+}
+
 export type RegistrationSelection = { eventId: string; raceId: string; categoryId: string | null; waveId: string | null };
 export function capacityScopes(selection: RegistrationSelection) {
   return [

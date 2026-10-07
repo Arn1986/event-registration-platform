@@ -48,6 +48,12 @@ export async function saveRegistrationSubmission(input: {
   const existing = await database().prepare("SELECT r.id AS registrationId, r.status, r.registration_reference AS registrationReference, g.guardian_email AS guardianEmail FROM registrations r LEFT JOIN guardian_consents g ON g.registration_id = r.id WHERE r.idempotency_key = ?")
     .bind(input.idempotencyKey).first<{ registrationId: string; status: string; registrationReference: string; guardianEmail: string | null }>();
   if (existing) return { ...existing, guardianEmail: existing.guardianEmail ?? undefined, existing: true as const };
+
+  const existingActive = await getAthleteRegistrationForRace(input.identity.userId, input.raceId);
+  if (existingActive) {
+    throw new Error(`You are already registered for this race (${existingActive.registrationReference}). Each athlete can only register once per race.`);
+  }
+
   const selection = await database().prepare(`SELECT e.id AS eventId, r.id AS raceId,
     CASE WHEN ? IS NULL THEN 1 ELSE EXISTS(SELECT 1 FROM categories c WHERE c.id = ? AND c.race_id = r.id) END AS categoryValid,
     CASE WHEN ? IS NULL THEN 1 ELSE EXISTS(SELECT 1 FROM waves w WHERE w.id = ? AND w.race_id = r.id) END AS waveValid
@@ -85,8 +91,27 @@ export async function saveRegistrationSubmission(input: {
     .bind(id("guardian"), registrationId, input.guardian.name, input.guardian.email, input.guardian.relationship, timestamp, timestamp));
   if (input.teamId && input.teamRole) statements.push(database().prepare("INSERT INTO team_members (id, team_id, registration_id, role, relay_leg, joined_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
     .bind(id("member"), input.teamId, registrationId, input.teamRole, input.relayLeg ?? null, timestamp, timestamp));
-  await database().batch(statements);
+  try {
+    await database().batch(statements);
+  } catch (error) {
+    const errorStr = String(error);
+    if (errorStr.includes("registrations_athlete_race_active_unique") || errorStr.includes("UNIQUE constraint failed: registrations")) {
+      throw new Error("You are already registered for this race. Each athlete can only register once per race.");
+    }
+    throw error;
+  }
   return { registrationId, registrationReference, status, guardianEmail: input.guardian?.email, existing: false as const };
+}
+
+export async function getAthleteRegistrationForRace(userId: string, raceId: string) {
+  return database().prepare(`SELECT r.id, r.status, r.registration_reference AS registrationReference, r.race_id AS raceId, r.event_id AS eventId FROM registrations r JOIN athlete_profiles p ON p.id = r.athlete_profile_id WHERE p.user_id = ? AND r.race_id = ? AND r.status <> 'cancelled'`)
+    .bind(userId, raceId).first<{ id: string; status: string; registrationReference: string; raceId: string; eventId: string }>();
+}
+
+export async function getAthleteRegistrationsForEvent(userId: string, eventId: string) {
+  const result = await database().prepare(`SELECT r.id, r.status, r.registration_reference AS registrationReference, r.race_id AS raceId, r.event_id AS eventId FROM registrations r JOIN athlete_profiles p ON p.id = r.athlete_profile_id WHERE p.user_id = ? AND r.event_id = ? AND r.status <> 'cancelled'`)
+    .bind(userId, eventId).all<{ id: string; status: string; registrationReference: string; raceId: string; eventId: string }>();
+  return result.results;
 }
 
 export async function attachGuardianChallenge(registrationId: string, challengeId: string) {

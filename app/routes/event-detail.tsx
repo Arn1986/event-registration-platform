@@ -1,6 +1,8 @@
 import { Link, data } from "react-router";
 
 import type { Route } from "./+types/event-detail";
+import { getAthlete } from "../infrastructure/auth/athlete-auth.server";
+import { getAthleteRegistrationsForEvent } from "../infrastructure/db/athlete-repository.server";
 import { getPublishedEventBySlug, validatePrivateEventAccess } from "../infrastructure/db/event-repository.server";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
@@ -8,7 +10,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   if (!result) throw data("Event not found", { status: 404 });
   const access = new URL(request.url).searchParams.get("access");
   if (result.event.visibility === "private" && !(await validatePrivateEventAccess(result.event.id, access))) throw data("Event not found", { status: 404 });
-  return { ...result, access };
+  const athlete = await getAthlete(request);
+  const activeRegistrations = athlete ? await getAthleteRegistrationsForEvent(athlete.userId, result.event.id) : [];
+  return { ...result, access, activeRegistrations };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -19,7 +23,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 export default function EventDetail({ loaderData }: Route.ComponentProps) {
-  const { event, races } = loaderData; const startsAt = new Date(event.startsAt);
+  const { event, races, activeRegistrations } = loaderData; const startsAt = new Date(event.startsAt);
   return (
     <main className="page-width section-space">
       <Link className="back-link" to="/">← All events</Link>
@@ -34,12 +38,22 @@ export default function EventDetail({ loaderData }: Route.ComponentProps) {
         <div>
           <h2>Choose your race</h2>
           <div className="race-list">
-            {races.map((race) => (
-              <article className="race-row" key={race.id}>
-                <div><span className="race-distance">{race.distanceValue} {race.distanceUnit}</span><h3>{race.name}</h3><p>{race.capacity === null ? "No capacity limit" : `${race.capacity} places`}</p></div>
-                <Link className="button button-primary" to={`/events/${event.slug}/register?race=${race.id}${loaderData.access ? `&access=${loaderData.access}` : ""}`}>Register</Link>
-              </article>
-            ))}
+            {races.map((race) => {
+              const activeReg = activeRegistrations?.find((item) => item.raceId === race.id);
+              return (
+                <article className="race-row" key={race.id}>
+                  <div><span className="race-distance">{race.distanceValue} {race.distanceUnit}</span><h3>{race.name}</h3><p>{race.capacity === null ? "No capacity limit" : `${race.capacity} places`}</p></div>
+                  {activeReg ? (
+                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                      <span className="pill pill-open">Registered</span>
+                      <Link className="button button-muted" to={`/registrations/${activeReg.id}/confirmation`}>View entry</Link>
+                    </div>
+                  ) : (
+                    <Link className="button button-primary" to={`/events/${event.slug}/register?race=${race.id}${loaderData.access ? `&access=${loaderData.access}` : ""}`}>Register</Link>
+                  )}
+                </article>
+              );
+            })}
           </div>
         </div>
         <aside className="info-card">

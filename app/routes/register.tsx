@@ -6,7 +6,7 @@ import { athleteDetailsSchema, isMinorOnEventDate } from "../domain/registration
 import { validateFieldAnswer } from "../domain/forms/form-validation";
 import { entryTypes, type EntryType } from "../domain/teams/team-rules";
 import { getAthlete, requestOtp } from "../infrastructure/auth/athlete-auth.server";
-import { attachGuardianChallenge, getAthleteProfile, saveRegistrationSubmission } from "../infrastructure/db/athlete-repository.server";
+import { attachGuardianChallenge, getAthleteProfile, getAthleteRegistrationForRace, saveRegistrationSubmission } from "../infrastructure/db/athlete-repository.server";
 import { getPublishedEventBySlug, validatePrivateEventAccess } from "../infrastructure/db/event-repository.server";
 import { getPublishedFormBundle } from "../infrastructure/db/form-repository.server";
 import { finalizeRegistration } from "../infrastructure/db/registration-engine.server";
@@ -26,11 +26,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const selectedRace = result.races.find((race) => race.id === (teamAccess?.team.raceId ?? url.searchParams.get("race"))) ?? result.races[0];
   if (!selectedRace) throw data("No race is available for registration", { status: 400 });
   const athlete = await getAthlete(request);
+  const existingRegistration = athlete ? await getAthleteRegistrationForRace(athlete.userId, selectedRace.id) : null;
   return {
     event: result.event, eventSlug: params.eventSlug, selectedRace, access, teamAccess,
     categories: result.categories.filter((category) => category.raceId === selectedRace.id),
     waves: result.waves.filter((wave) => wave.raceId === selectedRace.id),
     athlete, profile: athlete ? await getAthleteProfile(athlete.userId) : null,
+    existingRegistration,
     bundle: await getPublishedFormBundle(result.event.id), emailConfigured: emailDeliveryConfigured(), submissionToken: crypto.randomUUID(),
   };
 }
@@ -66,6 +68,15 @@ export async function action({ params, request }: Route.ActionArgs) {
   const raceId = String(teamAccess?.team.raceId ?? formData.get("raceId") ?? "");
   const race = result.races.find((item) => item.id === raceId);
   if (!race) return data({ ok: false as const, message: "Choose a valid race." }, { status: 400 });
+
+  const alreadyRegistered = await getAthleteRegistrationForRace(identity.userId, race.id);
+  if (alreadyRegistered) {
+    return data({
+      ok: false as const,
+      message: `You are already registered for this race (${alreadyRegistered.registrationReference}). Each athlete can only register once per race.`,
+    }, { status: 409 });
+  }
+
   const bundle = await getPublishedFormBundle(result.event.id);
   if (!bundle) return data({ ok: false as const, message: "Registration is not open because the event form and waiver have not been published." }, { status: 409 });
 
@@ -144,6 +155,26 @@ export default function Register({ loaderData, actionData }: Route.ComponentProp
       {actionData ? <p className="form-message form-error">{actionData.message}</p> : null}<p className="form-note">By continuing, you agree to receive registration-related email from 3F Striders.</p>
     </section>
   </main>;
+
+  if (loaderData.existingRegistration) {
+    return <main className="narrow-page section-space">
+      <Link className="back-link" to={`/events/${loaderData.eventSlug}${backQuery}`}>← Event details</Link>
+      <section className="form-card">
+        <span className="eyebrow eyebrow-dark">{loaderData.selectedRace.name}</span>
+        <h1>Already registered</h1>
+        <p className="lead">You already have an active registration for this race.</p>
+        <div className="registration-card-top" style={{ marginTop: "1rem", marginBottom: "1rem" }}>
+          <span className={`pill status-${loaderData.existingRegistration.status}`}>{loaderData.existingRegistration.status.replaceAll("_", " ")}</span>
+          <strong>Ref: {loaderData.existingRegistration.registrationReference}</strong>
+        </div>
+        <p className="section-help">Each athlete can only register once per race. You can view your registration details, access your wallet pass, or manage your entry.</p>
+        <div className="button-row" style={{ marginTop: "1.5rem" }}>
+          <Link className="button button-primary" to={`/registrations/${loaderData.existingRegistration.id}/confirmation`}>View registration</Link>
+          <Link className="button button-muted" to="/dashboard">Athlete dashboard</Link>
+        </div>
+      </section>
+    </main>;
+  }
 
   const profile = loaderData.profile;
   return <main className="registration-page page-width section-space">
