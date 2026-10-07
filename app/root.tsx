@@ -5,8 +5,13 @@ import {
   Meta,
   Outlet,
   Scripts,
-  ScrollRestoration,
+  UNSAFE_useScrollRestoration as useScrollRestoration,
 } from "react-router";
+
+function SafeScrollRestoration() {
+  useScrollRestoration();
+  return null;
+}
 
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -45,7 +50,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </header>
         {children}
         <footer className="site-footer"><div className="page-width footer-inner"><span>© 3F Striders</span><span>Race registration built for the UAE</span></div></footer>
-        <ScrollRestoration />
+        <SafeScrollRestoration />
         <Scripts />
       </body>
     </html>

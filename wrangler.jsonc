@@ -31,16 +31,14 @@
 	"upload_source_maps": true,
 	"r2_buckets": [
 		{
-			"bucket_name": "event-registration-passes",
-			"binding": "event_registration_passes"
+			"binding": "PASSES",
+			"bucket_name": "event-registration-passes"
+		},
+		{
+			"binding": "event_registration_passes",
+			"bucket_name": "event-registration-passes"
 		}
 	],
-	"r2_buckets": [
-    {
-      "binding": "PASSES",
-      "bucket_name": "event-registration-passes"
-    }
-  ],
   "queues": {
     "producers": [
       {

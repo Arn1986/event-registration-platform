@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "react-router build",
-    "dev": "react-router dev",
+    "dev": "CI=true wrangler d1 migrations apply event-registration-platform --local && react-router dev",
     "test": "vitest run --config vitest.config.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply event-registration-platform --local",

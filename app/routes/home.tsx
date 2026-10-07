@@ -5,8 +5,10 @@ import { listPublishedEvents } from "../infrastructure/db/event-repository.serve
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "3F Striders Events" },
-    { name: "description", content: "Discover and register for upcoming 3F Striders races." },
+    { title: "3F Striders Event Registration" },
+    { name: "description", content: "Event and race registration platform for 3F Striders, featuring race management, athlete dashboards, organizer tools, and digital passes." },
+    { property: "og:title", content: "3F Striders Event Registration" },
+    { property: "og:description", content: "Event and race registration platform for 3F Striders, featuring race management, athlete dashboards, organizer tools, and digital passes." },
   ];
 }
 
