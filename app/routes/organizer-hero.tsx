@@ -143,6 +143,7 @@ export default function OrganizerHero({ loaderData, actionData }: Route.Componen
   const [uploadedImageUrl, setUploadedImageUrl] = useState("");
   const [title, setTitle] = useState(PRESET_GALLERY[0].title);
   const [caption, setCaption] = useState(PRESET_GALLERY[0].caption);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const effectiveImageUrl =
@@ -156,6 +157,7 @@ export default function OrganizerHero({ loaderData, actionData }: Route.Componen
     setSelectedPresetUrl(preset.url);
     setTitle(preset.title);
     setCaption(preset.caption);
+    setUploadError(null);
   };
 
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -163,10 +165,11 @@ export default function OrganizerHero({ loaderData, actionData }: Route.Componen
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      alert("Please select a valid image file (JPEG, PNG, WebP).");
+      setUploadError("Please select a valid image file (JPEG, PNG, WebP).");
       return;
     }
 
+    setUploadError(null);
     const reader = new FileReader();
     reader.onload = (event) => {
       const result = event.target?.result as string;
@@ -538,6 +541,11 @@ export default function OrganizerHero({ loaderData, actionData }: Route.Componen
                 <small style={{ display: "block", marginTop: "6px", color: "var(--muted)" }}>
                   Supports JPEG, PNG, WebP athletic event photos.
                 </small>
+                {uploadError ? (
+                  <p style={{ margin: "6px 0 0", color: "#b91c1c", fontSize: "0.82rem", fontWeight: 600 }}>
+                    {uploadError}
+                  </p>
+                ) : null}
               </div>
             ) : null}
 

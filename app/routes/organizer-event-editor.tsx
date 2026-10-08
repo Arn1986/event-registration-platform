@@ -99,15 +99,17 @@ export default function OrganizerEventEditor({ loaderData, actionData }: Route.C
 
   const [imageUrl, setImageUrl] = useState(event.imageUrl ?? "");
   const [imageMode, setImageMode] = useState<"preset" | "upload" | "url">("preset");
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      alert("Please select a valid image file.");
+      setUploadError("Please select a valid image file (JPEG, PNG, WebP).");
       return;
     }
+    setUploadError(null);
     const reader = new FileReader();
     reader.onload = (event) => {
       setImageUrl(event.target?.result as string);
@@ -211,6 +213,11 @@ export default function OrganizerEventEditor({ loaderData, actionData }: Route.C
                   onChange={handleFileUpload}
                   style={{ display: "block", width: "100%", padding: "10px", border: "1px dashed var(--line)", borderRadius: "8px" }}
                 />
+                {uploadError ? (
+                  <p style={{ margin: "6px 0 0", color: "#b91c1c", fontSize: "0.82rem" }}>
+                    {uploadError}
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
