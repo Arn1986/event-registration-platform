@@ -17,6 +17,7 @@ export default [
   route("organizer/logout", "routes/organizer-logout.tsx"),
   route("organizer", "routes/organizer-layout.tsx", [
     index("routes/organizer-events.tsx"),
+    route("events", "routes/organizer-events-alias.tsx"),
     route("events/new", "routes/organizer-event-new.tsx"),
     route("events/:eventId", "routes/organizer-event-editor.tsx"),
     route("events/:eventId/form", "routes/organizer-event-form.tsx"),

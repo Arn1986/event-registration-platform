@@ -1,19 +1,34 @@
 import { Form, data, redirect } from "react-router";
 import type { Route } from "./+types/organizer-login";
-import { createOrganizerSession, getOrganizerSession, organizerAuthConfigured } from "../infrastructure/auth/organizer-session.server";
+import {
+  createOrganizerSession,
+  getOrganizerSession,
+  organizerAuthConfigured,
+  sanitizeOrganizerNext,
+} from "../infrastructure/auth/organizer-session.server";
 
 export async function loader({ request }: Route.LoaderArgs) {
   if (await getOrganizerSession(request)) throw redirect("/organizer");
-  return { configured: organizerAuthConfigured(), next: new URL(request.url).searchParams.get("next") ?? "/organizer" };
+  const rawNext = new URL(request.url).searchParams.get("next");
+  return {
+    configured: organizerAuthConfigured(),
+    next: sanitizeOrganizerNext(rawNext),
+  };
 }
 
 export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const result = await createOrganizerSession(String(formData.get("accessKey") ?? ""));
   if (!result.ok) return data({ error: result.error }, { status: 401 });
-  const next = String(formData.get("next") ?? "/organizer");
-  const safeNext = next.startsWith("/organizer") ? next : "/organizer";
-  throw redirect(safeNext, { headers: { "Set-Cookie": result.cookie } });
+  const rawNext = String(formData.get("next") ?? "/organizer");
+  const safeNext = sanitizeOrganizerNext(rawNext);
+
+  const headers = new Headers();
+  for (const c of result.cookies) {
+    headers.append("Set-Cookie", c);
+  }
+
+  return redirect(safeNext, { headers });
 }
 
 export default function OrganizerLogin({ loaderData, actionData }: Route.ComponentProps) {

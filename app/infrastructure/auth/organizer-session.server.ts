@@ -1,6 +1,9 @@
 import { env } from "cloudflare:workers";
 import { redirect } from "react-router";
 import { organizerRoles, type OrganizerRole } from "../../domain/auth/rbac";
+import { sanitizeOrganizerNext } from "../../domain/auth/organizer-paths";
+
+export { sanitizeOrganizerNext };
 
 type OrganizerSecrets = {
   ORGANIZER_SETUP_TOKEN?: string;
@@ -10,7 +13,8 @@ type OrganizerSecrets = {
 };
 
 export type OrganizerSession = { email: string; role: OrganizerRole; expiresAt: number };
-const COOKIE_NAME = "__Host-3f_organizer";
+const COOKIE_NAME = "3f_organizer";
+const HOST_COOKIE_NAME = "__Host-3f_organizer";
 const encoder = new TextEncoder();
 
 function secrets() { return env as Env & OrganizerSecrets; }
@@ -56,11 +60,22 @@ export async function createOrganizerSession(accessKey: string) {
   const session: OrganizerSession = { email: configuration.ORGANIZER_EMAIL ?? "owner@3fstriders.org", role, expiresAt: Date.now() + 12 * 60 * 60 * 1000 };
   const payload = bytesToBase64Url(encoder.encode(JSON.stringify(session)));
   const value = `${payload}.${await sign(payload)}`;
-  return { ok: true as const, cookie: `${COOKIE_NAME}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200` };
+  
+  // Issue cookies compatible across top-level browser windows, HTTPS, localhost, and partitioned iframes
+  const cookieLax = `${COOKIE_NAME}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200`;
+  const cookieSecureHost = `${HOST_COOKIE_NAME}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=43200`;
+  const cookiePartitioned = `${COOKIE_NAME}_p=${value}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=43200`;
+  
+  return {
+    ok: true as const,
+    cookie: cookieLax,
+    cookies: [cookieLax, cookieSecureHost, cookiePartitioned],
+  };
 }
 
 export async function getOrganizerSession(request: Request): Promise<OrganizerSession | null> {
-  const value = parseCookies(request)[COOKIE_NAME];
+  const cookies = parseCookies(request);
+  const value = cookies[COOKIE_NAME] || cookies[HOST_COOKIE_NAME] || cookies[`${COOKIE_NAME}_p`];
   if (!value) return null;
   const [payload, signature] = value.split(".");
   const key = await signingKey();
@@ -77,9 +92,22 @@ export async function requireOrganizer(request: Request) {
   const session = await getOrganizerSession(request);
   if (!session) {
     const url = new URL(request.url);
-    throw redirect(`/organizer/login?next=${encodeURIComponent(url.pathname + url.search)}`);
+    const cleanPathname = url.pathname.replace(/\.data$/, "");
+    const search = url.search;
+    const target = sanitizeOrganizerNext(`${cleanPathname}${search}`);
+    throw redirect(`/organizer/login?next=${encodeURIComponent(target)}`);
   }
   return session;
 }
 
-export function clearOrganizerSession() { return `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`; }
+export function clearOrganizerSession() {
+  return `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+}
+
+export function clearOrganizerCookies(): string[] {
+  return [
+    `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`,
+    `${HOST_COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
+    `${COOKIE_NAME}_p=; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=0`,
+  ];
+}
